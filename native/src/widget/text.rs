@@ -2,7 +2,8 @@
 use crate::alignment;
 use crate::layout;
 use crate::{
-    Color, Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget,
+    Color, Element, Font, Hasher, Layout, Length, Point, Rectangle, Size,
+    Widget,
 };
 
 pub use iced_core::text::Hit;
@@ -14,7 +15,7 @@ use std::hash::Hash;
 /// # Example
 ///
 /// ```
-/// # type Text = iced_native::Text<iced_native::renderer::Null>;
+/// # use iced_native::Text;
 /// #
 /// Text::new("I <3 iced!")
 ///     .color([0.0, 0.0, 1.0])
@@ -23,18 +24,18 @@ use std::hash::Hash;
 ///
 /// ![Text drawn by `iced_wgpu`](https://github.com/hecrj/iced/blob/7760618fb112074bc40b148944521f312152012a/docs/images/text.png?raw=true)
 #[derive(Debug)]
-pub struct Text<Renderer: self::Renderer> {
+pub struct Text {
     content: String,
     size: Option<u16>,
     color: Option<Color>,
-    font: Renderer::Font,
+    font: Font,
     width: Length,
     height: Length,
     horizontal_alignment: alignment::Horizontal,
     vertical_alignment: alignment::Vertical,
 }
 
-impl<Renderer: self::Renderer> Text<Renderer> {
+impl Text {
     /// Create a new fragment of [`Text`] with the given contents.
     pub fn new<T: Into<String>>(label: T) -> Self {
         Text {
@@ -64,7 +65,7 @@ impl<Renderer: self::Renderer> Text<Renderer> {
     /// Sets the [`Font`] of the [`Text`].
     ///
     /// [`Font`]: Renderer::Font
-    pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
+    pub fn font(mut self, font: impl Into<Font>) -> Self {
         self.font = font.into();
         self
     }
@@ -100,7 +101,7 @@ impl<Renderer: self::Renderer> Text<Renderer> {
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Text<Renderer>
+impl<Message, Renderer> Widget<Message, Renderer> for Text
 where
     Renderer: self::Renderer,
 {
@@ -169,9 +170,6 @@ where
 ///
 /// [renderer]: crate::Renderer
 pub trait Renderer: crate::Renderer {
-    /// The font type used for [`Text`].
-    type Font: Default + Copy;
-
     /// Returns the default size of [`Text`].
     fn default_size(&self) -> u16;
 
@@ -181,7 +179,7 @@ pub trait Renderer: crate::Renderer {
         &self,
         content: &str,
         size: u16,
-        font: Self::Font,
+        font: Font,
         bounds: Size,
     ) -> (f32, f32);
 
@@ -196,7 +194,7 @@ pub trait Renderer: crate::Renderer {
         &self,
         contents: &str,
         size: f32,
-        font: Self::Font,
+        font: Font,
         bounds: Size,
         point: Point,
         nearest_only: bool,
@@ -217,24 +215,23 @@ pub trait Renderer: crate::Renderer {
         bounds: Rectangle,
         content: &str,
         size: u16,
-        font: Self::Font,
+        font: Font,
         color: Option<Color>,
         horizontal_alignment: alignment::Horizontal,
         vertical_alignment: alignment::Vertical,
     ) -> Self::Output;
 }
 
-impl<'a, Message, Renderer> From<Text<Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message, Renderer> From<Text> for Element<'a, Message, Renderer>
 where
     Renderer: self::Renderer + 'a,
 {
-    fn from(text: Text<Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(text: Text) -> Element<'a, Message, Renderer> {
         Element::new(text)
     }
 }
 
-impl<Renderer: self::Renderer> Clone for Text<Renderer> {
+impl Clone for Text {
     fn clone(&self) -> Self {
         Self {
             content: self.content.clone(),

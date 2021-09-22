@@ -9,8 +9,8 @@ use crate::scrollable;
 use crate::text;
 use crate::touch;
 use crate::{
-    Clipboard, Element, Hasher, Layout, Length, Padding, Point, Rectangle,
-    Size, Widget,
+    Clipboard, Element, Font, Hasher, Layout, Length, Padding, Point,
+    Rectangle, Size, Widget,
 };
 use std::borrow::Cow;
 
@@ -32,7 +32,7 @@ where
     width: Length,
     padding: Padding,
     text_size: Option<u16>,
-    font: Renderer::Font,
+    font: Font,
     style: <Renderer as self::Renderer>::Style,
 }
 
@@ -124,7 +124,7 @@ where
     }
 
     /// Sets the font of the [`PickList`].
-    pub fn font(mut self, font: Renderer::Font) -> Self {
+    pub fn font(mut self, font: Font) -> Self {
         self.font = font;
         self
     }
@@ -397,7 +397,7 @@ pub trait Renderer: text::Renderer + menu::Renderer {
         placeholder: Option<&str>,
         padding: Padding,
         text_size: u16,
-        font: Self::Font,
+        font: Font,
         style: &<Self as Renderer>::Style,
     ) -> Self::Output;
 }

@@ -77,7 +77,7 @@ where
     ///
     /// ```
     /// # mod counter {
-    /// #     type Text = iced_native::Text<iced_native::renderer::Null>;
+    /// #     use iced_native::Text;
     /// #
     /// #     #[derive(Debug, Clone, Copy)]
     /// #     pub enum Message {}

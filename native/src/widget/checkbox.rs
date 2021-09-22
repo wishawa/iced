@@ -9,8 +9,8 @@ use crate::row;
 use crate::text;
 use crate::touch;
 use crate::{
-    Clipboard, Color, Element, Hasher, Layout, Length, Point, Rectangle, Row,
-    Text, Widget,
+    Clipboard, Color, Element, Font, Hasher, Layout, Length, Point, Rectangle,
+    Row, Text, Widget,
 };
 
 /// A box that can be checked.
@@ -39,7 +39,7 @@ pub struct Checkbox<Message, Renderer: self::Renderer + text::Renderer> {
     size: u16,
     spacing: u16,
     text_size: Option<u16>,
-    font: Renderer::Font,
+    font: Font,
     text_color: Option<Color>,
     style: Renderer::Style,
 }
@@ -67,7 +67,7 @@ impl<Message, Renderer: self::Renderer + text::Renderer>
             size: <Renderer as self::Renderer>::DEFAULT_SIZE,
             spacing: Renderer::DEFAULT_SPACING,
             text_size: None,
-            font: Renderer::Font::default(),
+            font: Font::default(),
             text_color: None,
             style: Renderer::Style::default(),
         }
@@ -100,7 +100,7 @@ impl<Message, Renderer: self::Renderer + text::Renderer>
     /// Sets the [`Font`] of the text of the [`Checkbox`].
     ///
     /// [`Font`]: crate::widget::text::Renderer::Font
-    pub fn font(mut self, font: Renderer::Font) -> Self {
+    pub fn font(mut self, font: Font) -> Self {
         self.font = font;
         self
     }

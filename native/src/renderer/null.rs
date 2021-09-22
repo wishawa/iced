@@ -62,8 +62,6 @@ impl row::Renderer for Null {
 }
 
 impl text::Renderer for Null {
-    type Font = Font;
-
     fn default_size(&self) -> u16 {
         20
     }
@@ -82,7 +80,7 @@ impl text::Renderer for Null {
         &self,
         _contents: &str,
         _size: f32,
-        _font: Self::Font,
+        _font: Font,
         _bounds: Size,
         _point: Point,
         _nearest_only: bool,
@@ -135,8 +133,6 @@ impl scrollable::Renderer for Null {
 }
 
 impl text_input::Renderer for Null {
-    type Style = ();
-
     fn measure_value(&self, _value: &str, _size: u16, _font: Font) -> f32 {
         0.0
     }
@@ -162,7 +158,7 @@ impl text_input::Renderer for Null {
         _placeholder: &str,
         _value: &text_input::Value,
         _state: &text_input::State,
-        _style: &Self::Style,
+        _style: &dyn text_input::StyleSheet,
     ) -> Self::Output {
     }
 }

@@ -8,8 +8,8 @@ use crate::scrollable;
 use crate::text;
 use crate::touch;
 use crate::{
-    Clipboard, Container, Element, Hasher, Layout, Length, Padding, Point,
-    Rectangle, Scrollable, Size, Vector, Widget,
+    Clipboard, Container, Element, Font, Hasher, Layout, Length, Padding,
+    Point, Rectangle, Scrollable, Size, Vector, Widget,
 };
 
 /// A list of selectable options.
@@ -22,7 +22,7 @@ pub struct Menu<'a, T, Renderer: self::Renderer> {
     width: u16,
     padding: Padding,
     text_size: Option<u16>,
-    font: Renderer::Font,
+    font: Font,
     style: <Renderer as self::Renderer>::Style,
 }
 
@@ -71,7 +71,7 @@ where
     }
 
     /// Sets the font of the [`Menu`].
-    pub fn font(mut self, font: Renderer::Font) -> Self {
+    pub fn font(mut self, font: Font) -> Self {
         self.font = font;
         self
     }
@@ -263,7 +263,7 @@ struct List<'a, T, Renderer: self::Renderer> {
     last_selection: &'a mut Option<T>,
     padding: Padding,
     text_size: Option<u16>,
-    font: Renderer::Font,
+    font: Font,
     style: <Renderer as self::Renderer>::Style,
 }
 
@@ -432,7 +432,7 @@ pub trait Renderer:
         hovered_option: Option<usize>,
         padding: Padding,
         text_size: u16,
-        font: Self::Font,
+        font: Font,
         style: &<Self as Renderer>::Style,
     ) -> Self::Output;
 }

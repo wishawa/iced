@@ -6,19 +6,14 @@ use iced_native::mouse;
 use iced_native::text;
 use iced_native::{Color, Font, Point, Rectangle, Size};
 
-/// A paragraph of text.
-///
-/// This is an alias of an `iced_native` text with an `iced_wgpu::Renderer`.
-pub type Text<Backend> = iced_native::Text<Renderer<Backend>>;
-
 use std::f32;
+
+pub use iced_native::text::Text;
 
 impl<B> text::Renderer for Renderer<B>
 where
     B: Backend + backend::Text,
 {
-    type Font = Font;
-
     fn default_size(&self) -> u16 {
         self.backend().default_size()
     }

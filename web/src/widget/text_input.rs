@@ -39,7 +39,7 @@ pub struct TextInput<'a, Message> {
     size: Option<u16>,
     on_change: Rc<Box<dyn Fn(String) -> Message>>,
     on_submit: Option<Message>,
-    style_sheet: Box<dyn StyleSheet>,
+    style_sheet: &'a dyn StyleSheet,
 }
 
 impl<'a, Message> TextInput<'a, Message> {
@@ -112,7 +112,7 @@ impl<'a, Message> TextInput<'a, Message> {
     }
 
     /// Sets the style of the [`TextInput`].
-    pub fn style(mut self, style: impl Into<Box<dyn StyleSheet>>) -> Self {
+    pub fn style(mut self, style: impl Into<&'a dyn StyleSheet>) -> Self {
         self.style_sheet = style.into();
         self
     }

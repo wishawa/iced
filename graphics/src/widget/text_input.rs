@@ -12,21 +12,12 @@ use iced_native::mouse;
 use iced_native::text_input::{self, cursor};
 use std::f32;
 
-pub use iced_native::text_input::State;
-pub use iced_style::text_input::{Style, StyleSheet};
-
-/// A field that can be filled with text.
-///
-/// This is an alias of an `iced_native` text input with an `iced_wgpu::Renderer`.
-pub type TextInput<'a, Message, Backend> =
-    iced_native::TextInput<'a, Message, Renderer<Backend>>;
+pub use iced_native::text_input::{State, Style, StyleSheet, TextInput};
 
 impl<B> text_input::Renderer for Renderer<B>
 where
     B: Backend + backend::Text,
 {
-    type Style = Box<dyn StyleSheet>;
-
     fn measure_value(&self, value: &str, size: u16, font: Font) -> f32 {
         let backend = self.backend();
 
@@ -77,7 +68,7 @@ where
         placeholder: &str,
         value: &text_input::Value,
         state: &text_input::State,
-        style_sheet: &Self::Style,
+        style_sheet: &dyn text_input::StyleSheet,
     ) -> Self::Output {
         let is_mouse_over = bounds.contains(cursor_position);
 

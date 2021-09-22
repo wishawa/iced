@@ -6,15 +6,15 @@ use iced_core::Rectangle;
 use crate::widget::container;
 use crate::widget::text::{self, Text};
 use crate::{
-    event, layout, Clipboard, Element, Event, Hasher, Layout, Length, Point,
-    Widget,
+    event, layout, Clipboard, Element, Event, Font, Hasher, Layout, Length,
+    Point, Widget,
 };
 
 /// An element to display a widget over another.
 #[allow(missing_debug_implementations)]
 pub struct Tooltip<'a, Message, Renderer: self::Renderer> {
     content: Element<'a, Message, Renderer>,
-    tooltip: Text<Renderer>,
+    tooltip: Text,
     position: Position,
     style: <Renderer as container::Renderer>::Style,
     gap: u16,
@@ -52,7 +52,7 @@ where
     /// Sets the font of the [`Tooltip`].
     ///
     /// [`Font`]: Renderer::Font
-    pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
+    pub fn font(mut self, font: impl Into<Font>) -> Self {
         self.tooltip = self.tooltip.font(font);
         self
     }
@@ -188,7 +188,7 @@ pub trait Renderer:
         content_layout: Layout<'_>,
         viewport: &Rectangle,
         content: &Element<'_, Message, Self>,
-        tooltip: &Text<Self>,
+        tooltip: &Text,
         position: Position,
         style: &<Self as container::Renderer>::Style,
         gap: u16,

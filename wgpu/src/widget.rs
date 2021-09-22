@@ -19,7 +19,6 @@ pub mod radio;
 pub mod rule;
 pub mod scrollable;
 pub mod slider;
-pub mod text_input;
 pub mod toggler;
 pub mod tooltip;
 
@@ -43,8 +42,6 @@ pub use rule::Rule;
 pub use scrollable::Scrollable;
 #[doc(no_inline)]
 pub use slider::Slider;
-#[doc(no_inline)]
-pub use text_input::TextInput;
 #[doc(no_inline)]
 pub use toggler::Toggler;
 #[doc(no_inline)]
@@ -73,6 +70,3 @@ pub type Column<'a, Message> = iced_native::Column<'a, Message, Renderer>;
 
 /// A container that distributes its contents horizontally.
 pub type Row<'a, Message> = iced_native::Row<'a, Message, Renderer>;
-
-/// A paragraph of text.
-pub type Text = iced_native::Text<Renderer>;

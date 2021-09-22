@@ -9,8 +9,8 @@ use crate::row;
 use crate::text;
 use crate::touch;
 use crate::{
-    Clipboard, Color, Element, Hasher, Layout, Length, Point, Rectangle, Row,
-    Text, Widget,
+    Clipboard, Color, Element, Font, Hasher, Layout, Length, Point, Rectangle,
+    Row, Text, Widget,
 };
 
 /// A circular button representing a choice.
@@ -49,7 +49,7 @@ pub struct Radio<Message, Renderer: self::Renderer + text::Renderer> {
     spacing: u16,
     text_size: Option<u16>,
     text_color: Option<Color>,
-    font: Renderer::Font,
+    font: Font,
     style: Renderer::Style,
 }
 
@@ -121,7 +121,7 @@ where
     }
 
     /// Sets the text font of the [`Radio`] button.
-    pub fn font(mut self, font: Renderer::Font) -> Self {
+    pub fn font(mut self, font: Font) -> Self {
         self.font = font;
         self
     }

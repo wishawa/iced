@@ -9,6 +9,8 @@ pub mod cursor;
 pub use cursor::Cursor;
 pub use value::Value;
 
+pub use iced_style::text_input::{Style, StyleSheet};
+
 use editor::Editor;
 
 use crate::event::{self, Event};
@@ -18,8 +20,8 @@ use crate::mouse::{self, click};
 use crate::text;
 use crate::touch;
 use crate::{
-    Clipboard, Element, Hasher, Layout, Length, Padding, Point, Rectangle,
-    Size, Widget,
+    Clipboard, Element, Font, Hasher, Layout, Length, Padding, Point,
+    Rectangle, Size, Widget,
 };
 
 use std::u32;
@@ -28,9 +30,8 @@ use std::u32;
 ///
 /// # Example
 /// ```
-/// # use iced_native::{text_input, renderer::Null};
+/// # use iced_native::text_input::{self, TextInput};;
 /// #
-/// # pub type TextInput<'a, Message> = iced_native::TextInput<'a, Message, Null>;
 /// #[derive(Debug, Clone)]
 /// enum Message {
 ///     TextInputChanged(String),
@@ -49,25 +50,24 @@ use std::u32;
 /// ```
 /// ![Text input drawn by `iced_wgpu`](https://github.com/hecrj/iced/blob/7760618fb112074bc40b148944521f312152012a/docs/images/text_input.png?raw=true)
 #[allow(missing_debug_implementations)]
-pub struct TextInput<'a, Message, Renderer: self::Renderer> {
+pub struct TextInput<'a, Message> {
     state: &'a mut State,
     placeholder: String,
     value: Value,
     is_secure: bool,
-    font: Renderer::Font,
+    font: Font,
     width: Length,
     max_width: u32,
     padding: Padding,
     size: Option<u16>,
     on_change: Box<dyn Fn(String) -> Message>,
     on_submit: Option<Message>,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<'a, Message, Renderer> TextInput<'a, Message, Renderer>
+impl<'a, Message> TextInput<'a, Message>
 where
     Message: Clone,
-    Renderer: self::Renderer,
 {
     /// Creates a new [`TextInput`].
     ///
@@ -97,7 +97,7 @@ where
             size: None,
             on_change: Box::new(on_change),
             on_submit: None,
-            style: Renderer::Style::default(),
+            style: Default::default(),
         }
     }
 
@@ -109,9 +109,8 @@ where
 
     /// Sets the [`Font`] of the [`Text`].
     ///
-    /// [`Font`]: crate::widget::text::Renderer::Font
     /// [`Text`]: crate::widget::Text
-    pub fn font(mut self, font: Renderer::Font) -> Self {
+    pub fn font(mut self, font: Font) -> Self {
         self.font = font;
         self
     }
@@ -147,7 +146,10 @@ where
     }
 
     /// Sets the style of the [`TextInput`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
@@ -158,13 +160,10 @@ where
     }
 }
 
-impl<'a, Message, Renderer> TextInput<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> TextInput<'a, Message> {
     /// Draws the [`TextInput`] with the given [`Renderer`], overriding its
     /// [`Value`] if provided.
-    pub fn draw(
+    pub fn draw<Renderer: self::Renderer>(
         &self,
         renderer: &mut Renderer,
         layout: Layout<'_>,
@@ -186,7 +185,7 @@ where
                 &self.placeholder,
                 &value.secure(),
                 &self.state,
-                &self.style,
+                self.style,
             )
         } else {
             self::Renderer::draw(
@@ -199,14 +198,13 @@ where
                 &self.placeholder,
                 value,
                 &self.state,
-                &self.style,
+                self.style,
             )
         }
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for TextInput<'a, Message, Renderer>
+impl<'a, Message, Renderer> Widget<Message, Renderer> for TextInput<'a, Message>
 where
     Message: Clone,
     Renderer: self::Renderer,
@@ -653,11 +651,8 @@ where
 ///
 /// [renderer]: crate::renderer
 pub trait Renderer: text::Renderer + Sized {
-    /// The style supported by this renderer.
-    type Style: Default;
-
     /// Returns the width of the value of the [`TextInput`].
-    fn measure_value(&self, value: &str, size: u16, font: Self::Font) -> f32;
+    fn measure_value(&self, value: &str, size: u16, font: Font) -> f32;
 
     /// Returns the current horizontal offset of the value of the
     /// [`TextInput`].
@@ -667,7 +662,7 @@ pub trait Renderer: text::Renderer + Sized {
     fn offset(
         &self,
         text_bounds: Rectangle,
-        font: Self::Font,
+        font: Font,
         size: u16,
         value: &Value,
         state: &State,
@@ -687,12 +682,12 @@ pub trait Renderer: text::Renderer + Sized {
         bounds: Rectangle,
         text_bounds: Rectangle,
         cursor_position: Point,
-        font: Self::Font,
+        font: Font,
         size: u16,
         placeholder: &str,
         value: &Value,
         state: &State,
-        style: &Self::Style,
+        style: &dyn StyleSheet,
     ) -> Self::Output;
 
     /// Computes the position of the text cursor at the given X coordinate of
@@ -700,7 +695,7 @@ pub trait Renderer: text::Renderer + Sized {
     fn find_cursor_position(
         &self,
         text_bounds: Rectangle,
-        font: Self::Font,
+        font: Font,
         size: Option<u16>,
         value: &Value,
         state: &State,
@@ -722,14 +717,14 @@ pub trait Renderer: text::Renderer + Sized {
     }
 }
 
-impl<'a, Message, Renderer> From<TextInput<'a, Message, Renderer>>
+impl<'a, Message, Renderer> From<TextInput<'a, Message>>
     for Element<'a, Message, Renderer>
 where
     Message: 'a + Clone,
     Renderer: 'a + self::Renderer,
 {
     fn from(
-        text_input: TextInput<'a, Message, Renderer>,
+        text_input: TextInput<'a, Message>,
     ) -> Element<'a, Message, Renderer> {
         Element::new(text_input)
     }

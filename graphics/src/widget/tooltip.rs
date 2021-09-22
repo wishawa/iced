@@ -29,7 +29,7 @@ where
         content_layout: Layout<'_>,
         viewport: &Rectangle,
         content: &Element<'_, Message, Self>,
-        tooltip: &Text<Self>,
+        tooltip: &Text,
         position: Position,
         style_sheet: &<Self as container::Renderer>::Style,
         gap: u16,
