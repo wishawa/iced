@@ -4,12 +4,15 @@
 use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget,
 };
 
 use std::{hash::Hash, ops::RangeInclusive};
+
+pub use iced_style::slider::{Style, StyleSheet};
 
 /// An horizontal bar and a handle that selects a single value from a range of
 /// values.
@@ -37,7 +40,7 @@ use std::{hash::Hash, ops::RangeInclusive};
 ///
 /// ![Slider drawn by Coffee's renderer](https://github.com/hecrj/coffee/blob/bda9818f823dfcb8a7ad0ff4940b4d4b387b5208/images/ui/slider.png?raw=true)
 #[allow(missing_debug_implementations)]
-pub struct Slider<'a, T, Message, Renderer: self::Renderer> {
+pub struct Slider<'a, T, Message> {
     state: &'a mut State,
     range: RangeInclusive<T>,
     step: T,
@@ -46,14 +49,13 @@ pub struct Slider<'a, T, Message, Renderer: self::Renderer> {
     on_release: Option<Message>,
     width: Length,
     height: u16,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<'a, T, Message, Renderer> Slider<'a, T, Message, Renderer>
+impl<'a, T, Message> Slider<'a, T, Message>
 where
     T: Copy + From<u8> + std::cmp::PartialOrd,
     Message: Clone,
-    Renderer: self::Renderer,
 {
     /// Creates a new [`Slider`].
     ///
@@ -122,7 +124,10 @@ where
     }
 
     /// Sets the style of the [`Slider`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
@@ -147,12 +152,10 @@ impl State {
     }
 }
 
-impl<'a, T, Message, Renderer> Widget<Message, Renderer>
-    for Slider<'a, T, Message, Renderer>
+impl<'a, T, Message> Widget<Message> for Slider<'a, T, Message>
 where
     T: Copy + Into<f64> + num_traits::FromPrimitive,
     Message: Clone,
-    Renderer: self::Renderer,
 {
     fn width(&self) -> Length {
         self.width
@@ -164,7 +167,7 @@ where
 
     fn layout(
         &self,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits =
@@ -180,7 +183,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -245,12 +248,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let start = *self.range.start();
         let end = *self.range.end();
 
@@ -272,48 +275,12 @@ where
     }
 }
 
-/// The renderer of a [`Slider`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Slider`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// The default height of a [`Slider`].
-    const DEFAULT_HEIGHT: u16;
-
-    /// Draws a [`Slider`].
-    ///
-    /// It receives:
-    ///   * the current cursor position
-    ///   * the bounds of the [`Slider`]
-    ///   * the local state of the [`Slider`]
-    ///   * the range of values of the [`Slider`]
-    ///   * the current value of the [`Slider`]
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        cursor_position: Point,
-        range: RangeInclusive<f32>,
-        value: f32,
-        is_dragging: bool,
-        style: &Self::Style,
-    ) -> Self::Output;
-}
-
-impl<'a, T, Message, Renderer> From<Slider<'a, T, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, T, Message> From<Slider<'a, T, Message>> for Element<'a, Message>
 where
     T: 'a + Copy + Into<f64> + num_traits::FromPrimitive,
     Message: 'a + Clone,
-    Renderer: 'a + self::Renderer,
 {
-    fn from(
-        slider: Slider<'a, T, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(slider: Slider<'a, T, Message>) -> Element<'a, Message> {
         Element::new(slider)
     }
 }

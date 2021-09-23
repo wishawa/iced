@@ -1,6 +1,7 @@
 //! Write some text for your users to read.
 use crate::alignment;
 use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::{
     Color, Element, Font, Hasher, Layout, Length, Point, Rectangle, Size,
     Widget,
@@ -101,10 +102,7 @@ impl Text {
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Text
-where
-    Renderer: self::Renderer,
-{
+impl<Message> Widget<Message> for Text {
     fn width(&self) -> Length {
         self.width
     }
@@ -115,7 +113,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits.width(self.width).height(self.height);
@@ -134,12 +132,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         _cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(
             defaults,
             layout.bounds(),
@@ -163,70 +161,8 @@ where
     }
 }
 
-/// The renderer of a [`Text`] fragment.
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use [`Text`] in your user interface.
-///
-/// [renderer]: crate::Renderer
-pub trait Renderer: crate::Renderer {
-    /// Returns the default size of [`Text`].
-    fn default_size(&self) -> u16;
-
-    /// Measures the [`Text`] in the given bounds and returns the minimum
-    /// boundaries that can fit the contents.
-    fn measure(
-        &self,
-        content: &str,
-        size: u16,
-        font: Font,
-        bounds: Size,
-    ) -> (f32, f32);
-
-    /// Tests whether the provided point is within the boundaries of [`Text`]
-    /// laid out with the given parameters, returning information about
-    /// the nearest character.
-    ///
-    /// If `nearest_only` is true, the hit test does not consider whether the
-    /// the point is interior to any glyph bounds, returning only the character
-    /// with the nearest centeroid.
-    fn hit_test(
-        &self,
-        contents: &str,
-        size: f32,
-        font: Font,
-        bounds: Size,
-        point: Point,
-        nearest_only: bool,
-    ) -> Option<Hit>;
-
-    /// Draws a [`Text`] fragment.
-    ///
-    /// It receives:
-    ///   * the bounds of the [`Text`]
-    ///   * the contents of the [`Text`]
-    ///   * the size of the [`Text`]
-    ///   * the color of the [`Text`]
-    ///   * the [`HorizontalAlignment`] of the [`Text`]
-    ///   * the [`VerticalAlignment`] of the [`Text`]
-    fn draw(
-        &mut self,
-        defaults: &Self::Defaults,
-        bounds: Rectangle,
-        content: &str,
-        size: u16,
-        font: Font,
-        color: Option<Color>,
-        horizontal_alignment: alignment::Horizontal,
-        vertical_alignment: alignment::Vertical,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Text> for Element<'a, Message, Renderer>
-where
-    Renderer: self::Renderer + 'a,
-{
-    fn from(text: Text) -> Element<'a, Message, Renderer> {
+impl<'a, Message> From<Text> for Element<'a, Message> {
+    fn from(text: Text) -> Element<'a, Message> {
         Element::new(text)
     }
 }

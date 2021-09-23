@@ -1,6 +1,7 @@
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::{Clipboard, Element, Layout, Point, Rectangle, Size};
 
 use std::hash::Hasher;
@@ -18,17 +19,14 @@ use std::hash::Hasher;
 ///
 /// [`integration` example]: https://github.com/hecrj/iced/tree/0.3/examples/integration
 #[allow(missing_debug_implementations)]
-pub struct UserInterface<'a, Message, Renderer> {
-    root: Element<'a, Message, Renderer>,
+pub struct UserInterface<'a, Message> {
+    root: Element<'a, Message>,
     base: Layer,
     overlay: Option<Layer>,
     bounds: Size,
 }
 
-impl<'a, Message, Renderer> UserInterface<'a, Message, Renderer>
-where
-    Renderer: crate::Renderer,
-{
+impl<'a, Message> UserInterface<'a, Message> {
     /// Builds a user interface for an [`Element`].
     ///
     /// It is able to avoid expensive computations when using a [`Cache`]
@@ -82,11 +80,11 @@ where
     ///     cache = user_interface.into_cache();
     /// }
     /// ```
-    pub fn build<E: Into<Element<'a, Message, Renderer>>>(
+    pub fn build<E: Into<Element<'a, Message>>>(
         root: E,
         bounds: Size,
         cache: Cache,
-        renderer: &mut Renderer,
+        renderer: &mut dyn Renderer,
     ) -> Self {
         let root = root.into();
 
@@ -104,13 +102,12 @@ where
             let (layout, overlay) = if layout_is_cached {
                 (cache.base.layout, cache.overlay)
             } else {
-                (
-                    renderer.layout(
-                        &root,
-                        &layout::Limits::new(Size::ZERO, bounds),
-                    ),
-                    None,
-                )
+                let layout = root
+                    .layout(renderer, &layout::Limits::new(Size::ZERO, bounds));
+
+                renderer.after_layout();
+
+                (layout, None)
             };
 
             (Layer { layout, hash }, overlay)
@@ -194,7 +191,7 @@ where
         &mut self,
         events: &[Event],
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> Vec<event::Status> {
@@ -331,12 +328,12 @@ where
     /// ```
     pub fn draw(
         &mut self,
-        renderer: &mut Renderer,
+        renderer: &mut dyn Renderer,
         cursor_position: Point,
-    ) -> Renderer::Output {
+    ) {
         let viewport = Rectangle::with_size(self.bounds);
 
-        let overlay = if let Some(mut overlay) =
+        let overlay_bounds = if let Some(mut overlay) =
             self.root.overlay(Layout::new(&self.base.layout))
         {
             let layer = Self::overlay_layer(
@@ -348,54 +345,50 @@ where
 
             let overlay_bounds = layer.layout.bounds();
 
-            let overlay_primitives = overlay.draw(
+            renderer.begin_layer(overlay_bounds);
+            overlay.draw(
                 renderer,
-                &Renderer::Defaults::default(),
+                &renderer::Defaults::default(),
                 Layout::new(&layer.layout),
                 cursor_position,
             );
+            renderer.end_layer();
 
             self.overlay = Some(layer);
 
-            Some((overlay_primitives, overlay_bounds))
+            Some(overlay_bounds)
         } else {
             None
         };
 
-        if let Some((overlay_primitives, overlay_bounds)) = overlay {
+        if let Some(overlay_bounds) = overlay_bounds {
             let base_cursor = if overlay_bounds.contains(cursor_position) {
                 Point::new(-1.0, -1.0)
             } else {
                 cursor_position
             };
 
-            let base_primitives = self.root.widget.draw(
+            self.root.widget.draw(
                 renderer,
-                &Renderer::Defaults::default(),
+                &renderer::Defaults::default(),
                 Layout::new(&self.base.layout),
                 base_cursor,
                 &viewport,
             );
-
-            renderer.overlay(
-                base_primitives,
-                overlay_primitives,
-                overlay_bounds,
-            )
         } else {
             self.root.widget.draw(
                 renderer,
-                &Renderer::Defaults::default(),
+                &renderer::Defaults::default(),
                 Layout::new(&self.base.layout),
                 cursor_position,
                 &viewport,
-            )
+            );
         }
     }
 
     /// Relayouts and returns a new  [`UserInterface`] using the provided
     /// bounds.
-    pub fn relayout(self, bounds: Size, renderer: &mut Renderer) -> Self {
+    pub fn relayout(self, bounds: Size, renderer: &mut dyn Renderer) -> Self {
         Self::build(
             self.root,
             bounds,
@@ -421,8 +414,8 @@ where
     fn overlay_layer(
         cache: Option<Layer>,
         bounds: Size,
-        overlay: &mut overlay::Element<'_, Message, Renderer>,
-        renderer: &Renderer,
+        overlay: &mut overlay::Element<'_, Message>,
+        renderer: &dyn Renderer,
     ) -> Layer {
         let new_hash = {
             let hasher = &mut crate::Hasher::default();

@@ -5,13 +5,14 @@ use crate::alignment::{self, Alignment};
 use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
-use crate::row;
-use crate::text;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Color, Element, Font, Hasher, Layout, Length, Point, Rectangle,
     Row, Text, Widget,
 };
+
+pub use iced_style::radio::{Style, StyleSheet};
 
 /// A circular button representing a choice.
 ///
@@ -40,7 +41,7 @@ use crate::{
 ///
 /// ![Radio buttons drawn by `iced_wgpu`](https://github.com/hecrj/iced/blob/7760618fb112074bc40b148944521f312152012a/docs/images/radio.png?raw=true)
 #[allow(missing_debug_implementations)]
-pub struct Radio<Message, Renderer: self::Renderer + text::Renderer> {
+pub struct Radio<'a, Message> {
     is_selected: bool,
     on_click: Message,
     label: String,
@@ -50,11 +51,10 @@ pub struct Radio<Message, Renderer: self::Renderer + text::Renderer> {
     text_size: Option<u16>,
     text_color: Option<Color>,
     font: Font,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<Message, Renderer: self::Renderer + text::Renderer>
-    Radio<Message, Renderer>
+impl<'a, Message> Radio<'a, Message>
 where
     Message: Clone,
 {
@@ -81,8 +81,8 @@ where
             on_click: f(value),
             label: label.into(),
             width: Length::Shrink,
-            size: <Renderer as self::Renderer>::DEFAULT_SIZE,
-            spacing: Renderer::DEFAULT_SPACING, //15
+            size: 28,
+            spacing: 15,
             text_size: None,
             text_color: None,
             font: Default::default(),
@@ -127,16 +127,18 @@ where
     }
 
     /// Sets the style of the [`Radio`] button.
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Radio<Message, Renderer>
+impl<'a, Message> Widget<Message> for Radio<'a, Message>
 where
     Message: Clone,
-    Renderer: self::Renderer + text::Renderer + row::Renderer,
 {
     fn width(&self) -> Length {
         self.width
@@ -148,10 +150,10 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        Row::<(), Renderer>::new()
+        Row::<()>::new()
             .width(self.width)
             .spacing(self.spacing)
             .align_items(Alignment::Center)
@@ -173,7 +175,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -194,12 +196,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let bounds = layout.bounds();
         let mut children = layout.children();
 
@@ -207,7 +209,7 @@ where
         let label_layout = children.next().unwrap();
         let radio_bounds = radio_layout.bounds();
 
-        let label = text::Renderer::draw(
+        let label = renderer.fill_text(
             renderer,
             defaults,
             label_layout.bounds(),
@@ -239,46 +241,11 @@ where
     }
 }
 
-/// The renderer of a [`Radio`] button.
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Radio`] button in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// The default size of a [`Radio`] button.
-    const DEFAULT_SIZE: u16;
-
-    /// The default spacing of a [`Radio`] button.
-    const DEFAULT_SPACING: u16;
-
-    /// Draws a [`Radio`] button.
-    ///
-    /// It receives:
-    ///   * the bounds of the [`Radio`]
-    ///   * whether the [`Radio`] is selected or not
-    ///   * whether the mouse is over the [`Radio`] or not
-    ///   * the drawn label of the [`Radio`]
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        is_selected: bool,
-        is_mouse_over: bool,
-        label: Self::Output,
-        style: &Self::Style,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Radio<Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Radio<'a, Message>> for Element<'a, Message>
 where
     Message: 'a + Clone,
-    Renderer: 'a + self::Renderer + row::Renderer + text::Renderer,
 {
-    fn from(radio: Radio<Message, Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(radio: Radio<'a, Message>) -> Element<'a, Message> {
         Element::new(radio)
     }
 }

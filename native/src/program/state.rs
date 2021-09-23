@@ -12,7 +12,6 @@ where
 {
     program: P,
     cache: Option<Cache>,
-    primitive: <P::Renderer as Renderer>::Output,
     queued_events: Vec<Event>,
     queued_messages: Vec<P::Message>,
 }
@@ -27,7 +26,7 @@ where
         mut program: P,
         bounds: Size,
         cursor_position: Point,
-        renderer: &mut P::Renderer,
+        renderer: &mut dyn Renderer,
         debug: &mut Debug,
     ) -> Self {
         let mut user_interface = build_user_interface(
@@ -39,7 +38,7 @@ where
         );
 
         debug.draw_started();
-        let primitive = user_interface.draw(renderer, cursor_position);
+        user_interface.draw(renderer, cursor_position);
         debug.draw_finished();
 
         let cache = Some(user_interface.into_cache());
@@ -47,7 +46,6 @@ where
         State {
             program,
             cache,
-            primitive,
             queued_events: Vec::new(),
             queued_messages: Vec::new(),
         }
@@ -56,11 +54,6 @@ where
     /// Returns a reference to the [`Program`] of the [`State`].
     pub fn program(&self) -> &P {
         &self.program
-    }
-
-    /// Returns a reference to the current rendering primitive of the [`State`].
-    pub fn primitive(&self) -> &<P::Renderer as Renderer>::Output {
-        &self.primitive
     }
 
     /// Queues an event in the [`State`] for processing during an [`update`].
@@ -91,7 +84,7 @@ where
         &mut self,
         bounds: Size,
         cursor_position: Point,
-        renderer: &mut P::Renderer,
+        renderer: &mut dyn Renderer,
         clipboard: &mut dyn Clipboard,
         debug: &mut Debug,
     ) -> Option<Command<P::Message>> {
@@ -120,7 +113,7 @@ where
 
         if messages.is_empty() {
             debug.draw_started();
-            self.primitive = user_interface.draw(renderer, cursor_position);
+            user_interface.draw(renderer, cursor_position);
             debug.draw_finished();
 
             self.cache = Some(user_interface.into_cache());
@@ -151,7 +144,7 @@ where
             );
 
             debug.draw_started();
-            self.primitive = user_interface.draw(renderer, cursor_position);
+            user_interface.draw(renderer, cursor_position);
             debug.draw_finished();
 
             self.cache = Some(user_interface.into_cache());
@@ -164,10 +157,10 @@ where
 fn build_user_interface<'a, P: Program>(
     program: &'a mut P,
     cache: Cache,
-    renderer: &mut P::Renderer,
+    renderer: &mut dyn Renderer,
     size: Size,
     debug: &mut Debug,
-) -> UserInterface<'a, P::Message, P::Renderer> {
+) -> UserInterface<'a, P::Message> {
     debug.view_started();
     let view = program.view();
     debug.view_finished();

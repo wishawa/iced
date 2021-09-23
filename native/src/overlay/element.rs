@@ -2,23 +2,21 @@ pub use crate::Overlay;
 
 use crate::event::{self, Event};
 use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::{Clipboard, Hasher, Layout, Point, Size, Vector};
 
 /// A generic [`Overlay`].
 #[allow(missing_debug_implementations)]
-pub struct Element<'a, Message, Renderer> {
+pub struct Element<'a, Message> {
     position: Point,
-    overlay: Box<dyn Overlay<Message, Renderer> + 'a>,
+    overlay: Box<dyn Overlay<Message> + 'a>,
 }
 
-impl<'a, Message, Renderer> Element<'a, Message, Renderer>
-where
-    Renderer: crate::Renderer,
-{
+impl<'a, Message> Element<'a, Message> {
     /// Creates a new [`Element`] containing the given [`Overlay`].
     pub fn new(
         position: Point,
-        overlay: Box<dyn Overlay<Message, Renderer> + 'a>,
+        overlay: Box<dyn Overlay<Message> + 'a>,
     ) -> Self {
         Self { position, overlay }
     }
@@ -30,10 +28,9 @@ where
     }
 
     /// Applies a transformation to the produced message of the [`Element`].
-    pub fn map<B>(self, f: &'a dyn Fn(Message) -> B) -> Element<'a, B, Renderer>
+    pub fn map<B>(self, f: &'a dyn Fn(Message) -> B) -> Element<'a, B>
     where
         Message: 'a,
-        Renderer: 'a,
         B: 'static,
     {
         Element {
@@ -43,7 +40,11 @@ where
     }
 
     /// Computes the layout of the [`Element`] in the given bounds.
-    pub fn layout(&self, renderer: &Renderer, bounds: Size) -> layout::Node {
+    pub fn layout(
+        &self,
+        renderer: &dyn Renderer,
+        bounds: Size,
+    ) -> layout::Node {
         self.overlay.layout(renderer, bounds, self.position)
     }
 
@@ -53,7 +54,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -70,13 +71,13 @@ where
     /// Draws the [`Element`] and its children using the given [`Layout`].
     pub fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
-    ) -> Renderer::Output {
+    ) {
         self.overlay
-            .draw(renderer, defaults, layout, cursor_position)
+            .draw(renderer, defaults, layout, cursor_position);
     }
 
     /// Computes the _layout_ hash of the [`Element`].
@@ -85,27 +86,24 @@ where
     }
 }
 
-struct Map<'a, A, B, Renderer> {
-    content: Box<dyn Overlay<A, Renderer> + 'a>,
+struct Map<'a, A, B> {
+    content: Box<dyn Overlay<A> + 'a>,
     mapper: &'a dyn Fn(A) -> B,
 }
 
-impl<'a, A, B, Renderer> Map<'a, A, B, Renderer> {
+impl<'a, A, B> Map<'a, A, B> {
     pub fn new(
-        content: Box<dyn Overlay<A, Renderer> + 'a>,
+        content: Box<dyn Overlay<A> + 'a>,
         mapper: &'a dyn Fn(A) -> B,
-    ) -> Map<'a, A, B, Renderer> {
+    ) -> Map<'a, A, B> {
         Map { content, mapper }
     }
 }
 
-impl<'a, A, B, Renderer> Overlay<B, Renderer> for Map<'a, A, B, Renderer>
-where
-    Renderer: crate::Renderer,
-{
+impl<'a, A, B> Overlay<B> for Map<'a, A, B> {
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         bounds: Size,
         position: Point,
     ) -> layout::Node {
@@ -117,7 +115,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<B>,
     ) -> event::Status {
@@ -141,13 +139,13 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
-    ) -> Renderer::Output {
+    ) {
         self.content
-            .draw(renderer, defaults, layout, cursor_position)
+            .draw(renderer, defaults, layout, cursor_position);
     }
 
     fn hash_layout(&self, state: &mut Hasher, position: Point) {

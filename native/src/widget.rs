@@ -81,6 +81,7 @@ pub use tooltip::Tooltip;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::{Clipboard, Hasher, Layout, Length, Point, Rectangle};
 
 /// A component that displays information and allows interaction.
@@ -105,10 +106,7 @@ use crate::{Clipboard, Hasher, Layout, Length, Point, Rectangle};
 /// [`geometry`]: https://github.com/hecrj/iced/tree/0.3/examples/geometry
 /// [`lyon`]: https://github.com/nical/lyon
 /// [`iced_wgpu`]: https://github.com/hecrj/iced/tree/0.3/wgpu
-pub trait Widget<Message, Renderer>
-where
-    Renderer: crate::Renderer,
-{
+pub trait Widget<Message> {
     /// Returns the width of the [`Widget`].
     fn width(&self) -> Length;
 
@@ -123,19 +121,19 @@ where
     /// [`Node`]: layout::Node
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node;
 
-    /// Draws the [`Widget`] using the associated `Renderer`.
+    /// Draws the [`Widget`] using the associated [`Renderer`].
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output;
+    );
 
     /// Computes the _layout_ hash of the [`Widget`].
     ///
@@ -158,7 +156,7 @@ where
     ///   * the current cursor position
     ///   * a mutable `Message` list, allowing the [`Widget`] to produce
     ///   new messages based on user interaction.
-    ///   * the `Renderer`
+    ///   * the [`Renderer`]
     ///   * a [`Clipboard`], if available
     ///
     /// By default, it does nothing.
@@ -167,7 +165,7 @@ where
         _event: Event,
         _layout: Layout<'_>,
         _cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         _messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -178,7 +176,7 @@ where
     fn overlay(
         &mut self,
         _layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         None
     }
 }

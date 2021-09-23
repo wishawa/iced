@@ -1,9 +1,9 @@
 //! Navigate an endless amount of content with a scrollbar.
-use crate::column;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Alignment, Clipboard, Column, Element, Hasher, Layout, Length, Padding,
@@ -12,22 +12,24 @@ use crate::{
 
 use std::{f32, hash::Hash, u32};
 
+pub use iced_style::scrollable::StyleSheet;
+
 /// A widget that can vertically display an infinite amount of content with a
 /// scrollbar.
 #[allow(missing_debug_implementations)]
-pub struct Scrollable<'a, Message, Renderer: self::Renderer> {
+pub struct Scrollable<'a, Message> {
     state: &'a mut State,
     height: Length,
     max_height: u32,
     scrollbar_width: u16,
     scrollbar_margin: u16,
     scroller_width: u16,
-    content: Column<'a, Message, Renderer>,
+    content: Column<'a, Message>,
     on_scroll: Option<Box<dyn Fn(f32) -> Message>>,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<'a, Message, Renderer: self::Renderer> Scrollable<'a, Message, Renderer> {
+impl<'a, Message> Scrollable<'a, Message> {
     /// Creates a new [`Scrollable`] with the given [`State`].
     pub fn new(state: &'a mut State) -> Self {
         Scrollable {
@@ -120,7 +122,10 @@ impl<'a, Message, Renderer: self::Renderer> Scrollable<'a, Message, Renderer> {
     }
 
     /// Sets the style of the [`Scrollable`] .
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
@@ -128,7 +133,7 @@ impl<'a, Message, Renderer: self::Renderer> Scrollable<'a, Message, Renderer> {
     /// Adds an element to the [`Scrollable`].
     pub fn push<E>(mut self, child: E) -> Self
     where
-        E: Into<Element<'a, Message, Renderer>>,
+        E: Into<Element<'a, Message>>,
     {
         self.content = self.content.push(child);
         self
@@ -153,13 +158,9 @@ impl<'a, Message, Renderer: self::Renderer> Scrollable<'a, Message, Renderer> {
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Scrollable<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Scrollable<'a, Message> {
     fn width(&self) -> Length {
-        Widget::<Message, Renderer>::width(&self.content)
+        Widget::<()>::width(&self.content)
     }
 
     fn height(&self) -> Length {
@@ -168,12 +169,12 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits
             .max_height(self.max_height)
-            .width(Widget::<Message, Renderer>::width(&self.content))
+            .width(Widget::<()>::width(&self.content))
             .height(self.height);
 
         let child_limits = layout::Limits::new(
@@ -192,7 +193,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -376,12 +377,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let bounds = layout.bounds();
         let content_layout = layout.children().next().unwrap();
         let content_bounds = content_layout.bounds();
@@ -447,7 +448,7 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         let Self { content, state, .. } = self;
 
         content
@@ -629,62 +630,11 @@ pub struct Scroller {
     pub bounds: Rectangle,
 }
 
-/// The renderer of a [`Scrollable`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Scrollable`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: column::Renderer + Sized {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// Returns the [`Scrollbar`] given the bounds and content bounds of a
-    /// [`Scrollable`].
-    fn scrollbar(
-        &self,
-        bounds: Rectangle,
-        content_bounds: Rectangle,
-        offset: u32,
-        scrollbar_width: u16,
-        scrollbar_margin: u16,
-        scroller_width: u16,
-    ) -> Option<Scrollbar>;
-
-    /// Draws the [`Scrollable`].
-    ///
-    /// It receives:
-    /// - the [`State`] of the [`Scrollable`]
-    /// - the bounds of the [`Scrollable`] widget
-    /// - the bounds of the [`Scrollable`] content
-    /// - whether the mouse is over the [`Scrollable`] or not
-    /// - whether the mouse is over the [`Scrollbar`] or not
-    /// - a optional [`Scrollbar`] to be rendered
-    /// - the scrolling offset
-    /// - the drawn content
-    fn draw(
-        &mut self,
-        scrollable: &State,
-        bounds: Rectangle,
-        content_bounds: Rectangle,
-        is_mouse_over: bool,
-        is_mouse_over_scrollbar: bool,
-        scrollbar: Option<Scrollbar>,
-        offset: u32,
-        style: &Self::Style,
-        content: Self::Output,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Scrollable<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Scrollable<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(
-        scrollable: Scrollable<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(scrollable: Scrollable<'a, Message>) -> Element<'a, Message> {
         Element::new(scrollable)
     }
 }

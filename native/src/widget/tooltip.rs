@@ -3,33 +3,35 @@ use std::hash::Hash;
 
 use iced_core::Rectangle;
 
+use crate::event;
+use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::widget::container;
-use crate::widget::text::{self, Text};
+use crate::widget::text::Text;
 use crate::{
-    event, layout, Clipboard, Element, Event, Font, Hasher, Layout, Length,
-    Point, Widget,
+    Clipboard, Element, Event, Font, Hasher, Layout, Length, Padding, Point,
+    Size, Vector, Widget,
 };
 
 /// An element to display a widget over another.
 #[allow(missing_debug_implementations)]
-pub struct Tooltip<'a, Message, Renderer: self::Renderer> {
-    content: Element<'a, Message, Renderer>,
+pub struct Tooltip<'a, Message> {
+    content: Element<'a, Message>,
     tooltip: Text,
     position: Position,
-    style: <Renderer as container::Renderer>::Style,
+    style_sheet: &'a dyn container::StyleSheet,
     gap: u16,
     padding: u16,
 }
 
-impl<'a, Message, Renderer> Tooltip<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Tooltip<'a, Message> {
+    pub const DEFAULT_PADDING: u16 = 5;
+
     /// Creates an empty [`Tooltip`].
     ///
     /// [`Tooltip`]: struct.Tooltip.html
     pub fn new(
-        content: impl Into<Element<'a, Message, Renderer>>,
+        content: impl Into<Element<'a, Message>>,
         tooltip: impl ToString,
         position: Position,
     ) -> Self {
@@ -37,9 +39,9 @@ where
             content: content.into(),
             tooltip: Text::new(tooltip.to_string()),
             position,
-            style: Default::default(),
+            style_sheet: Default::default(),
             gap: 0,
-            padding: Renderer::DEFAULT_PADDING,
+            padding: Self::DEFAULT_PADDING,
         }
     }
 
@@ -70,11 +72,14 @@ where
     }
 
     /// Sets the style of the [`Tooltip`].
-    pub fn style(
+    pub fn style<'b>(
         mut self,
-        style: impl Into<<Renderer as container::Renderer>::Style>,
-    ) -> Self {
-        self.style = style.into();
+        style_sheet: &'b dyn container::StyleSheet,
+    ) -> Self
+    where
+        'b: 'a,
+    {
+        self.style_sheet = style_sheet;
         self
     }
 }
@@ -94,11 +99,7 @@ pub enum Position {
     Right,
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Tooltip<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Tooltip<'a, Message> {
     fn width(&self) -> Length {
         self.content.width()
     }
@@ -109,7 +110,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         self.content.layout(renderer, limits)
@@ -120,7 +121,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -136,25 +137,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
-        self::Renderer::draw(
-            renderer,
-            defaults,
-            cursor_position,
-            layout,
-            viewport,
-            &self.content,
-            &self.tooltip,
-            self.position,
-            &self.style,
-            self.gap,
-            self.padding,
-        )
+    ) {
     }
 
     fn hash_layout(&self, state: &mut Hasher) {
@@ -165,46 +153,11 @@ where
     }
 }
 
-/// The renderer of a [`Tooltip`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Tooltip`] in your user interface.
-///
-/// [`Tooltip`]: struct.Tooltip.html
-/// [renderer]: ../../renderer/index.html
-pub trait Renderer:
-    crate::Renderer + text::Renderer + container::Renderer
-{
-    /// The default padding of a [`Tooltip`] drawn by this renderer.
-    const DEFAULT_PADDING: u16;
-
-    /// Draws a [`Tooltip`].
-    ///
-    /// [`Tooltip`]: struct.Tooltip.html
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        cursor_position: Point,
-        content_layout: Layout<'_>,
-        viewport: &Rectangle,
-        content: &Element<'_, Message, Self>,
-        tooltip: &Text,
-        position: Position,
-        style: &<Self as container::Renderer>::Style,
-        gap: u16,
-        padding: u16,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Tooltip<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Tooltip<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(
-        column: Tooltip<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(column: Tooltip<'a, Message>) -> Element<'a, Message> {
         Element::new(column)
     }
 }

@@ -5,12 +5,16 @@ use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Element, Hasher, Layout, Length, Padding, Point, Rectangle,
     Widget,
 };
+
 use std::hash::Hash;
+
+pub use iced_style::button::{Style, StyleSheet};
 
 /// A generic widget that produces a message when pressed.
 ///
@@ -53,28 +57,27 @@ use std::hash::Hash;
 /// }
 /// ```
 #[allow(missing_debug_implementations)]
-pub struct Button<'a, Message, Renderer: self::Renderer> {
+pub struct Button<'a, Message> {
     state: &'a mut State,
-    content: Element<'a, Message, Renderer>,
+    content: Element<'a, Message>,
     on_press: Option<Message>,
     width: Length,
     height: Length,
     min_width: u32,
     min_height: u32,
     padding: Padding,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<'a, Message, Renderer> Button<'a, Message, Renderer>
+impl<'a, Message> Button<'a, Message>
 where
     Message: Clone,
-    Renderer: self::Renderer,
 {
     /// Creates a new [`Button`] with some local [`State`] and the given
     /// content.
     pub fn new<E>(state: &'a mut State, content: E) -> Self
     where
-        E: Into<Element<'a, Message, Renderer>>,
+        E: Into<Element<'a, Message>>,
     {
         Button {
             state,
@@ -84,7 +87,7 @@ where
             height: Length::Shrink,
             min_width: 0,
             min_height: 0,
-            padding: Renderer::DEFAULT_PADDING,
+            padding: Padding::new(5),
             style: Renderer::Style::default(),
         }
     }
@@ -127,8 +130,11 @@ where
     }
 
     /// Sets the style of the [`Button`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
-        self.style = style.into();
+    pub fn style<'b>(mut self, style: &'b dyn StyleSheet) -> Self
+    where
+        'b: 'a,
+    {
+        self.style = style;
         self
     }
 }
@@ -146,11 +152,9 @@ impl State {
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Button<'a, Message, Renderer>
+impl<'a, Message> Widget<Message> for Button<'a, Message>
 where
     Message: Clone,
-    Renderer: self::Renderer,
 {
     fn width(&self) -> Length {
         self.width
@@ -162,7 +166,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits
@@ -188,7 +192,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -243,12 +247,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(
             defaults,
             layout.bounds(),
@@ -272,47 +276,16 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         self.content.overlay(layout.children().next().unwrap())
     }
 }
 
-/// The renderer of a [`Button`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Button`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer + Sized {
-    /// The default padding of a [`Button`].
-    const DEFAULT_PADDING: Padding;
-
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// Draws a [`Button`].
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        bounds: Rectangle,
-        cursor_position: Point,
-        is_disabled: bool,
-        is_pressed: bool,
-        style: &Self::Style,
-        content: &Element<'_, Message, Self>,
-        content_layout: Layout<'_>,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Button<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Button<'a, Message>> for Element<'a, Message>
 where
     Message: 'a + Clone,
-    Renderer: 'a + self::Renderer,
 {
-    fn from(
-        button: Button<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(button: Button<'a, Message>) -> Element<'a, Message> {
         Element::new(button)
     }
 }

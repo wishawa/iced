@@ -20,45 +20,47 @@
 //! [`Checkbox`]: crate::widget::Checkbox
 //! [`checkbox::Renderer`]: crate::widget::checkbox::Renderer
 
-#[cfg(debug_assertions)]
-mod null;
-#[cfg(debug_assertions)]
-pub use null::Null;
-
-use crate::{layout, Element, Rectangle};
+use crate::{Color, Rectangle};
 
 /// A component that can take the state of a user interface and produce an
 /// output for its users.
-pub trait Renderer: Sized {
-    /// The type of output of the [`Renderer`].
+pub trait Renderer {
+    /// After layout call back.
     ///
-    /// If you are implementing a graphical renderer, your output will most
-    /// likely be a tree of visual primitives.
-    type Output;
+    /// You should override this if you need to perform any operations after
+    /// layouting. For instance, trimming the measurements cache.
+    fn after_layout(&mut self) {}
 
-    /// The default styling attributes of the [`Renderer`].
-    ///
-    /// This type can be leveraged to implement style inheritance.
-    type Defaults: Default;
+    fn begin_layer(&mut self, bounds: Rectangle);
+    fn end_layer(&mut self);
+}
 
-    /// Lays out the elements of a user interface.
-    ///
-    /// You should override this if you need to perform any operations before or
-    /// after layouting. For instance, trimming the measurements cache.
-    fn layout<'a, Message>(
-        &mut self,
-        element: &Element<'a, Message, Self>,
-        limits: &layout::Limits,
-    ) -> layout::Node {
-        element.layout(self, limits)
+/// Some default styling attributes.
+#[derive(Debug, Clone, Copy)]
+pub struct Defaults {
+    /// Text styling
+    pub text: Text,
+}
+
+impl Default for Defaults {
+    fn default() -> Defaults {
+        Defaults {
+            text: Text::default(),
+        }
     }
+}
 
-    /// Overlays the `overlay` output with the given bounds on top of the `base`
-    /// output.
-    fn overlay(
-        &mut self,
-        base: Self::Output,
-        overlay: Self::Output,
-        overlay_bounds: Rectangle,
-    ) -> Self::Output;
+/// Some default text styling attributes.
+#[derive(Debug, Clone, Copy)]
+pub struct Text {
+    /// The default color of text
+    pub color: Color,
+}
+
+impl Default for Text {
+    fn default() -> Text {
+        Text {
+            color: Color::BLACK,
+        }
+    }
 }

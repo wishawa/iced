@@ -1,5 +1,5 @@
 //! Build interactive programs using The Elm Architecture.
-use crate::{Command, Element, Renderer};
+use crate::{Command, Element};
 
 mod state;
 
@@ -7,9 +7,6 @@ pub use state::State;
 
 /// The core of a user interface application following The Elm Architecture.
 pub trait Program: Sized {
-    /// The graphics backend to use to draw the [`Program`].
-    type Renderer: Renderer;
-
     /// The type of __messages__ your [`Program`] will produce.
     type Message: std::fmt::Debug + Send;
 
@@ -26,5 +23,5 @@ pub trait Program: Sized {
     /// Returns the widgets to display in the [`Program`].
     ///
     /// These widgets can produce __messages__ based on user interaction.
-    fn view(&mut self) -> Element<'_, Self::Message, Self::Renderer>;
+    fn view(&mut self) -> Element<'_, Self::Message>;
 }

@@ -2,20 +2,22 @@
 
 use std::hash::Hash;
 
-use crate::{
-    layout, Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget,
-};
+use crate::layout;
+use crate::renderer::{self, Renderer};
+use crate::{Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget};
+
+pub use iced_style::rule::{Style, StyleSheet};
 
 /// Display a horizontal or vertical rule for dividing content.
 #[derive(Debug, Copy, Clone)]
-pub struct Rule<Renderer: self::Renderer> {
+pub struct Rule<'a> {
     width: Length,
     height: Length,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
     is_horizontal: bool,
 }
 
-impl<Renderer: self::Renderer> Rule<Renderer> {
+impl<'a> Rule<'a> {
     /// Creates a horizontal [`Rule`] for dividing content by the given vertical spacing.
     pub fn horizontal(spacing: u16) -> Self {
         Rule {
@@ -37,16 +39,16 @@ impl<Renderer: self::Renderer> Rule<Renderer> {
     }
 
     /// Sets the style of the [`Rule`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Rule<Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Rule<'a> {
     fn width(&self) -> Length {
         self.width
     }
@@ -57,7 +59,7 @@ where
 
     fn layout(
         &self,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits.width(self.width).height(self.height);
@@ -67,12 +69,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         _cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(layout.bounds(), &self.style, self.is_horizontal)
     }
 
@@ -85,32 +87,11 @@ where
     }
 }
 
-/// The renderer of a [`Rule`].
-pub trait Renderer: crate::Renderer {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// Draws a [`Rule`].
-    ///
-    /// It receives:
-    ///   * the bounds of the [`Rule`]
-    ///   * the style of the [`Rule`]
-    ///   * whether the [`Rule`] is horizontal (true) or vertical (false)
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        style: &Self::Style,
-        is_horizontal: bool,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Rule<Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Rule<'a>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(rule: Rule<Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(rule: Rule<'a>) -> Element<'a, Message> {
         Element::new(rule)
     }
 }

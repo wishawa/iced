@@ -5,12 +5,13 @@ use crate::alignment;
 use crate::event;
 use crate::layout;
 use crate::mouse;
-use crate::row;
-use crate::text;
+use crate::renderer::{self, Renderer};
 use crate::{
     Alignment, Clipboard, Element, Event, Font, Hasher, Layout, Length, Point,
     Rectangle, Row, Text, Widget,
 };
+
+pub use iced_style::toggler::{Style, StyleSheet};
 
 /// A toggler widget
 ///
@@ -28,22 +29,20 @@ use crate::{
 /// Toggler::new(is_active, String::from("Toggle me!"), |b| Message::TogglerToggled(b));
 /// ```
 #[allow(missing_debug_implementations)]
-pub struct Toggler<Message, Renderer: self::Renderer + text::Renderer> {
+pub struct Toggler<'a, Message> {
     is_active: bool,
     on_toggle: Box<dyn Fn(bool) -> Message>,
     label: Option<String>,
     width: Length,
-    size: u16,
+    size: Option<u16>,
     text_size: Option<u16>,
     text_alignment: alignment::Horizontal,
     spacing: u16,
     font: Font,
-    style: Renderer::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<Message, Renderer: self::Renderer + text::Renderer>
-    Toggler<Message, Renderer>
-{
+impl<'a, Message> Toggler<'a, Message> {
     /// Creates a new [`Toggler`].
     ///
     /// It expects:
@@ -65,12 +64,12 @@ impl<Message, Renderer: self::Renderer + text::Renderer>
             on_toggle: Box::new(f),
             label: label.into(),
             width: Length::Fill,
-            size: <Renderer as self::Renderer>::DEFAULT_SIZE,
+            size: None,
             text_size: None,
             text_alignment: alignment::Horizontal::Left,
             spacing: 0,
             font: Font::default(),
-            style: Renderer::Style::default(),
+            style: Default::default(),
         }
     }
 
@@ -111,16 +110,16 @@ impl<Message, Renderer: self::Renderer + text::Renderer>
     }
 
     /// Sets the style of the [`Toggler`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Toggler<Message, Renderer>
-where
-    Renderer: self::Renderer + text::Renderer + row::Renderer,
-{
+impl<'a, Message> Widget<Message> for Toggler<'a, Message> {
     fn width(&self) -> Length {
         self.width
     }
@@ -131,10 +130,10 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let mut row = Row::<(), Renderer>::new()
+        let mut row = Row::<()>::new()
             .width(self.width)
             .spacing(self.spacing)
             .align_items(Alignment::Center);
@@ -163,7 +162,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -185,12 +184,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let bounds = layout.bounds();
         let mut children = layout.children();
 
@@ -198,8 +197,7 @@ where
             Some(label) => {
                 let label_layout = children.next().unwrap();
 
-                Some(text::Renderer::draw(
-                    renderer,
+                Some(renderer.fill_text(
                     defaults,
                     label_layout.bounds(),
                     &label,
@@ -237,46 +235,11 @@ where
     }
 }
 
-/// The renderer of a [`Toggler`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Toggler`] in your user interface.
-///
-/// [renderer]: ../../renderer/index.html
-pub trait Renderer: crate::Renderer {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// The default size of a [`Toggler`].
-    const DEFAULT_SIZE: u16;
-
-    /// Draws a [`Toggler`].
-    ///
-    /// It receives:
-    ///   * the bounds of the [`Toggler`]
-    ///   * whether the [`Toggler`] is activated or not
-    ///   * whether the mouse is over the [`Toggler`] or not
-    ///   * the drawn label of the [`Toggler`]
-    ///   * the style of the [`Toggler`]
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        is_active: bool,
-        is_mouse_over: bool,
-        label: Option<Self::Output>,
-        style: &Self::Style,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Toggler<Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Toggler<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer + text::Renderer + row::Renderer,
     Message: 'a,
 {
-    fn from(
-        toggler: Toggler<Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(toggler: Toggler<'a, Message>) -> Element<'a, Message> {
         Element::new(toggler)
     }
 }

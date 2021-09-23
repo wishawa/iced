@@ -3,6 +3,7 @@ pub mod viewer;
 pub use viewer::Viewer;
 
 use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::{Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget};
 
 use std::{
@@ -52,10 +53,7 @@ impl Image {
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Image
-where
-    Renderer: self::Renderer,
-{
+impl<Message> Widget<Message> for Image {
     fn width(&self) -> Length {
         self.width
     }
@@ -66,7 +64,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let (width, height) = renderer.dimensions(&self.handle);
@@ -91,12 +89,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         _cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(self.handle.clone(), layout)
     }
 
@@ -216,25 +214,8 @@ impl std::fmt::Debug for Data {
     }
 }
 
-/// The renderer of an [`Image`].
-///
-/// Your [renderer] will need to implement this trait before being able to use
-/// an [`Image`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer {
-    /// Returns the dimensions of an [`Image`] located on the given path.
-    fn dimensions(&self, handle: &Handle) -> (u32, u32);
-
-    /// Draws an [`Image`].
-    fn draw(&mut self, handle: Handle, layout: Layout<'_>) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Image> for Element<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
-    fn from(image: Image) -> Element<'a, Message, Renderer> {
+impl<'a, Message> From<Image> for Element<'a, Message> {
+    fn from(image: Image) -> Element<'a, Message> {
         Element::new(image)
     }
 }

@@ -5,6 +5,7 @@ use crate::alignment::{self, Alignment};
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::{
     Clipboard, Element, Hasher, Layout, Length, Padding, Point, Rectangle,
     Widget,
@@ -12,11 +13,13 @@ use crate::{
 
 use std::u32;
 
+pub use iced_style::container::{Style, StyleSheet};
+
 /// An element decorating some content.
 ///
 /// It is normally used for alignment purposes.
 #[allow(missing_debug_implementations)]
-pub struct Container<'a, Message, Renderer: self::Renderer> {
+pub struct Container<'a, Message> {
     padding: Padding,
     width: Length,
     height: Length,
@@ -24,18 +27,15 @@ pub struct Container<'a, Message, Renderer: self::Renderer> {
     max_height: u32,
     horizontal_alignment: alignment::Horizontal,
     vertical_alignment: alignment::Vertical,
-    style: Renderer::Style,
-    content: Element<'a, Message, Renderer>,
+    style: &'a dyn StyleSheet,
+    content: Element<'a, Message>,
 }
 
-impl<'a, Message, Renderer> Container<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Container<'a, Message> {
     /// Creates an empty [`Container`].
     pub fn new<T>(content: T) -> Self
     where
-        T: Into<Element<'a, Message, Renderer>>,
+        T: Into<Element<'a, Message>>,
     {
         Container {
             padding: Padding::ZERO,
@@ -105,17 +105,16 @@ where
     }
 
     /// Sets the style of the [`Container`].
-    pub fn style(mut self, style: impl Into<Renderer::Style>) -> Self {
+    pub fn style<'b>(mut self, style: impl Into<&'b dyn StyleSheet>) -> Self
+    where
+        'b: 'a,
+    {
         self.style = style.into();
         self
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Container<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Container<'a, Message> {
     fn width(&self) -> Length {
         self.width
     }
@@ -126,7 +125,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits
@@ -158,7 +157,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -174,12 +173,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(
             defaults,
             layout.bounds(),
@@ -188,7 +187,7 @@ where
             &self.style,
             &self.content,
             layout.children().next().unwrap(),
-        )
+        );
     }
 
     fn hash_layout(&self, state: &mut Hasher) {
@@ -207,43 +206,16 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         self.content.overlay(layout.children().next().unwrap())
     }
 }
 
-/// The renderer of a [`Container`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Container`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// Draws a [`Container`].
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        bounds: Rectangle,
-        cursor_position: Point,
-        viewport: &Rectangle,
-        style: &Self::Style,
-        content: &Element<'_, Message, Self>,
-        content_layout: Layout<'_>,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Container<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Container<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(
-        column: Container<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(column: Container<'a, Message>) -> Element<'a, Message> {
         Element::new(column)
     }
 }

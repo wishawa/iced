@@ -17,7 +17,7 @@ use crate::event::{self, Event};
 use crate::keyboard;
 use crate::layout;
 use crate::mouse::{self, click};
-use crate::text;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Element, Font, Hasher, Layout, Length, Padding, Point,
@@ -163,13 +163,13 @@ where
 impl<'a, Message> TextInput<'a, Message> {
     /// Draws the [`TextInput`] with the given [`Renderer`], overriding its
     /// [`Value`] if provided.
-    pub fn draw<Renderer: self::Renderer>(
+    pub fn draw(
         &self,
-        renderer: &mut Renderer,
+        renderer: &mut dyn Renderer,
         layout: Layout<'_>,
         cursor_position: Point,
         value: Option<&Value>,
-    ) -> Renderer::Output {
+    ) {
         let value = value.unwrap_or(&self.value);
         let bounds = layout.bounds();
         let text_bounds = layout.children().next().unwrap().bounds();
@@ -204,10 +204,9 @@ impl<'a, Message> TextInput<'a, Message> {
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for TextInput<'a, Message>
+impl<'a, Message> Widget<Message> for TextInput<'a, Message>
 where
     Message: Clone,
-    Renderer: self::Renderer,
 {
     fn width(&self) -> Length {
         self.width
@@ -219,7 +218,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let text_size = self.size.unwrap_or(renderer.default_size());
@@ -244,7 +243,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -623,12 +622,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         self.draw(renderer, layout, cursor_position, None)
     }
 
@@ -644,88 +643,11 @@ where
     }
 }
 
-/// The renderer of a [`TextInput`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`TextInput`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: text::Renderer + Sized {
-    /// Returns the width of the value of the [`TextInput`].
-    fn measure_value(&self, value: &str, size: u16, font: Font) -> f32;
-
-    /// Returns the current horizontal offset of the value of the
-    /// [`TextInput`].
-    ///
-    /// This is the amount of horizontal scrolling applied when the [`Value`]
-    /// does not fit the [`TextInput`].
-    fn offset(
-        &self,
-        text_bounds: Rectangle,
-        font: Font,
-        size: u16,
-        value: &Value,
-        state: &State,
-    ) -> f32;
-
-    /// Draws a [`TextInput`].
-    ///
-    /// It receives:
-    /// - the bounds of the [`TextInput`]
-    /// - the bounds of the text (i.e. the current value)
-    /// - the cursor position
-    /// - the placeholder to show when the value is empty
-    /// - the current [`Value`]
-    /// - the current [`State`]
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        text_bounds: Rectangle,
-        cursor_position: Point,
-        font: Font,
-        size: u16,
-        placeholder: &str,
-        value: &Value,
-        state: &State,
-        style: &dyn StyleSheet,
-    ) -> Self::Output;
-
-    /// Computes the position of the text cursor at the given X coordinate of
-    /// a [`TextInput`].
-    fn find_cursor_position(
-        &self,
-        text_bounds: Rectangle,
-        font: Font,
-        size: Option<u16>,
-        value: &Value,
-        state: &State,
-        x: f32,
-    ) -> Option<usize> {
-        let size = size.unwrap_or(self.default_size());
-
-        let offset = self.offset(text_bounds, font, size, &value, &state);
-
-        self.hit_test(
-            &value.to_string(),
-            size.into(),
-            font,
-            Size::INFINITY,
-            Point::new(x + offset, text_bounds.height / 2.0),
-            true,
-        )
-        .map(text::Hit::cursor)
-    }
-}
-
-impl<'a, Message, Renderer> From<TextInput<'a, Message>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<TextInput<'a, Message>> for Element<'a, Message>
 where
     Message: 'a + Clone,
-    Renderer: 'a + self::Renderer,
 {
-    fn from(
-        text_input: TextInput<'a, Message>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(text_input: TextInput<'a, Message>) -> Element<'a, Message> {
         Element::new(text_input)
     }
 }

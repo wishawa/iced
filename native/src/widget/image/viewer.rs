@@ -3,6 +3,7 @@ use crate::event::{self, Event};
 use crate::image;
 use crate::layout;
 use crate::mouse;
+use crate::renderer::{self, Renderer};
 use crate::{
     Clipboard, Element, Hasher, Layout, Length, Point, Rectangle, Size, Vector,
     Widget,
@@ -86,10 +87,7 @@ impl<'a> Viewer<'a> {
     /// Returns the bounds of the underlying image, given the bounds of
     /// the [`Viewer`]. Scaling will be applied and original aspect ratio
     /// will be respected.
-    fn image_size<Renderer>(&self, renderer: &Renderer, bounds: Size) -> Size
-    where
-        Renderer: self::Renderer + image::Renderer,
-    {
+    fn image_size(&self, renderer: &dyn Renderer, bounds: Size) -> Size {
         let (width, height) = renderer.dimensions(&self.handle);
 
         let (width, height) = {
@@ -113,10 +111,7 @@ impl<'a> Viewer<'a> {
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for Viewer<'a>
-where
-    Renderer: self::Renderer + image::Renderer,
-{
+impl<'a, Message> Widget<Message> for Viewer<'a> {
     fn width(&self) -> Length {
         self.width
     }
@@ -127,7 +122,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let (width, height) = renderer.dimensions(&self.handle);
@@ -166,7 +161,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         _messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -282,12 +277,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let bounds = layout.bounds();
 
         let image_size = self.image_size(renderer, bounds.size());
@@ -373,41 +368,11 @@ impl State {
     }
 }
 
-/// The renderer of an [`Viewer`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Viewer`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer + Sized {
-    /// Draws the [`Viewer`].
-    ///
-    /// It receives:
-    /// - the [`State`] of the [`Viewer`]
-    /// - the bounds of the [`Viewer`] widget
-    /// - the [`Size`] of the scaled [`Viewer`] image
-    /// - the translation of the clipped image
-    /// - the [`Handle`] to the underlying image
-    /// - whether the mouse is over the [`Viewer`] or not
-    ///
-    /// [`Handle`]: image::Handle
-    fn draw(
-        &mut self,
-        state: &State,
-        bounds: Rectangle,
-        image_size: Size,
-        translation: Vector,
-        handle: image::Handle,
-        is_mouse_over: bool,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Viewer<'a>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<Viewer<'a>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer + image::Renderer,
     Message: 'a,
 {
-    fn from(viewer: Viewer<'a>) -> Element<'a, Message, Renderer> {
+    fn from(viewer: Viewer<'a>) -> Element<'a, Message> {
         Element::new(viewer)
     }
 }

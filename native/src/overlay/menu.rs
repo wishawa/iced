@@ -1,20 +1,21 @@
 //! Build and show dropdown menus.
-use crate::container;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::scrollable;
-use crate::text;
 use crate::touch;
 use crate::{
     Clipboard, Container, Element, Font, Hasher, Layout, Length, Padding,
     Point, Rectangle, Scrollable, Size, Vector, Widget,
 };
 
+pub use iced_style::menu::Style;
+
 /// A list of selectable options.
 #[allow(missing_debug_implementations)]
-pub struct Menu<'a, T, Renderer: self::Renderer> {
+pub struct Menu<'a, T> {
     state: &'a mut State,
     options: &'a [T],
     hovered_option: &'a mut Option<usize>,
@@ -23,13 +24,12 @@ pub struct Menu<'a, T, Renderer: self::Renderer> {
     padding: Padding,
     text_size: Option<u16>,
     font: Font,
-    style: <Renderer as self::Renderer>::Style,
+    style: Style,
 }
 
-impl<'a, T, Renderer> Menu<'a, T, Renderer>
+impl<'a, T> Menu<'a, T>
 where
     T: ToString + Clone,
-    Renderer: self::Renderer + 'a,
 {
     /// Creates a new [`Menu`] with the given [`State`], a list of options, and
     /// the message to produced when an option is selected.
@@ -77,11 +77,8 @@ where
     }
 
     /// Sets the style of the [`Menu`].
-    pub fn style(
-        mut self,
-        style: impl Into<<Renderer as self::Renderer>::Style>,
-    ) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 
@@ -95,7 +92,7 @@ where
         self,
         position: Point,
         target_height: f32,
-    ) -> overlay::Element<'a, Message, Renderer> {
+    ) -> overlay::Element<'a, Message> {
         overlay::Element::new(
             position,
             Box::new(Overlay::new(self, target_height)),
@@ -116,19 +113,18 @@ impl State {
     }
 }
 
-struct Overlay<'a, Message, Renderer: self::Renderer> {
-    container: Container<'a, Message, Renderer>,
+struct Overlay<'a, Message> {
+    container: Container<'a, Message>,
     width: u16,
     target_height: f32,
-    style: <Renderer as self::Renderer>::Style,
+    style: Style,
 }
 
-impl<'a, Message, Renderer: self::Renderer> Overlay<'a, Message, Renderer>
+impl<'a, Message> Overlay<'a, Message>
 where
     Message: 'a,
-    Renderer: 'a,
 {
-    pub fn new<T>(menu: Menu<'a, T, Renderer>, target_height: f32) -> Self
+    pub fn new<T>(menu: Menu<'a, T>, target_height: f32) -> Self
     where
         T: Clone + ToString,
     {
@@ -165,14 +161,10 @@ where
     }
 }
 
-impl<'a, Message, Renderer> crate::Overlay<Message, Renderer>
-    for Overlay<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> crate::Overlay<Message> for Overlay<'a, Message> {
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         bounds: Size,
         position: Point,
     ) -> layout::Node {
@@ -219,7 +211,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -235,11 +227,11 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
-    ) -> Renderer::Output {
+    ) {
         let primitives = self.container.draw(
             renderer,
             defaults,
@@ -257,21 +249,19 @@ where
     }
 }
 
-struct List<'a, T, Renderer: self::Renderer> {
+struct List<'a, T> {
     options: &'a [T],
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<T>,
     padding: Padding,
     text_size: Option<u16>,
     font: Font,
-    style: <Renderer as self::Renderer>::Style,
+    style: Style,
 }
 
-impl<'a, T, Message, Renderer: self::Renderer> Widget<Message, Renderer>
-    for List<'a, T, Renderer>
+impl<'a, T, Message> Widget<Message> for List<'a, T>
 where
     T: Clone + ToString,
-    Renderer: self::Renderer,
 {
     fn width(&self) -> Length {
         Length::Fill
@@ -283,7 +273,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         use std::f32;
@@ -320,7 +310,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         _messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -378,12 +368,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         self::Renderer::draw(
             renderer,
             layout.bounds(),
@@ -399,52 +389,12 @@ where
     }
 }
 
-/// The renderer of a [`Menu`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Menu`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer:
-    scrollable::Renderer + container::Renderer + text::Renderer
-{
-    /// The [`Menu`] style supported by this renderer.
-    type Style: Default + Clone;
-
-    /// Decorates a the list of options of a [`Menu`].
-    ///
-    /// This method can be used to draw a background for the [`Menu`].
-    fn decorate(
-        &mut self,
-        bounds: Rectangle,
-        cursor_position: Point,
-        style: &<Self as Renderer>::Style,
-        primitive: Self::Output,
-    ) -> Self::Output;
-
-    /// Draws the list of options of a [`Menu`].
-    fn draw<T: ToString>(
-        &mut self,
-        bounds: Rectangle,
-        cursor_position: Point,
-        viewport: &Rectangle,
-        options: &[T],
-        hovered_option: Option<usize>,
-        padding: Padding,
-        text_size: u16,
-        font: Font,
-        style: &<Self as Renderer>::Style,
-    ) -> Self::Output;
-}
-
-impl<'a, T, Message, Renderer> Into<Element<'a, Message, Renderer>>
-    for List<'a, T, Renderer>
+impl<'a, T, Message> Into<Element<'a, Message>> for List<'a, T>
 where
     T: ToString + Clone,
     Message: 'a,
-    Renderer: 'a + self::Renderer,
 {
-    fn into(self) -> Element<'a, Message, Renderer> {
+    fn into(self) -> Element<'a, Message> {
         Element::new(self)
     }
 }

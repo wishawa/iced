@@ -17,7 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::layout::{Limits, Node};
-use crate::{Alignment, Element, Padding, Point, Size};
+use crate::{Alignment, Element, Padding, Point, Renderer, Size};
 
 /// The main axis of a flex layout.
 #[derive(Debug)]
@@ -56,18 +56,15 @@ impl Axis {
 /// padding and alignment to the items as needed.
 ///
 /// It returns a new layout [`Node`].
-pub fn resolve<Message, Renderer>(
+pub fn resolve<Message>(
     axis: Axis,
-    renderer: &Renderer,
+    renderer: &dyn Renderer,
     limits: &Limits,
     padding: Padding,
     spacing: f32,
     align_items: Alignment,
-    items: &[Element<'_, Message, Renderer>],
-) -> Node
-where
-    Renderer: crate::Renderer,
-{
+    items: &[Element<'_, Message>],
+) -> Node {
     let limits = limits.pad(padding);
     let total_spacing = spacing * items.len().saturating_sub(1) as f32;
     let max_cross = axis.cross(limits.max());

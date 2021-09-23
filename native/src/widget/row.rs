@@ -2,6 +2,7 @@
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::{
     Alignment, Clipboard, Element, Hasher, Layout, Length, Padding, Point,
     Rectangle, Widget,
@@ -12,7 +13,7 @@ use std::u32;
 
 /// A container that distributes its contents horizontally.
 #[allow(missing_debug_implementations)]
-pub struct Row<'a, Message, Renderer> {
+pub struct Row<'a, Message> {
     spacing: u16,
     padding: Padding,
     width: Length,
@@ -20,19 +21,17 @@ pub struct Row<'a, Message, Renderer> {
     max_width: u32,
     max_height: u32,
     align_items: Alignment,
-    children: Vec<Element<'a, Message, Renderer>>,
+    children: Vec<Element<'a, Message>>,
 }
 
-impl<'a, Message, Renderer> Row<'a, Message, Renderer> {
+impl<'a, Message> Row<'a, Message> {
     /// Creates an empty [`Row`].
     pub fn new() -> Self {
         Self::with_children(Vec::new())
     }
 
     /// Creates a [`Row`] with the given elements.
-    pub fn with_children(
-        children: Vec<Element<'a, Message, Renderer>>,
-    ) -> Self {
+    pub fn with_children(children: Vec<Element<'a, Message>>) -> Self {
         Row {
             spacing: 0,
             padding: Padding::ZERO,
@@ -94,18 +93,14 @@ impl<'a, Message, Renderer> Row<'a, Message, Renderer> {
     /// Adds an [`Element`] to the [`Row`].
     pub fn push<E>(mut self, child: E) -> Self
     where
-        E: Into<Element<'a, Message, Renderer>>,
+        E: Into<Element<'a, Message>>,
     {
         self.children.push(child.into());
         self
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Row<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Row<'a, Message> {
     fn width(&self) -> Length {
         self.width
     }
@@ -116,7 +111,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits
@@ -141,7 +136,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -163,12 +158,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(
             defaults,
             &self.children,
@@ -198,7 +193,7 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         self.children
             .iter_mut()
             .zip(layout.children())
@@ -207,36 +202,11 @@ where
     }
 }
 
-/// The renderer of a [`Row`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Row`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer + Sized {
-    /// Draws a [`Row`].
-    ///
-    /// It receives:
-    /// - the children of the [`Row`]
-    /// - the [`Layout`] of the [`Row`] and its children
-    /// - the cursor position
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        children: &[Element<'_, Message, Self>],
-        layout: Layout<'_>,
-        cursor_position: Point,
-        viewport: &Rectangle,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Row<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Row<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(row: Row<'a, Message, Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(row: Row<'a, Message>) -> Element<'a, Message> {
         Element::new(row)
     }
 }

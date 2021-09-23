@@ -2,25 +2,23 @@ use crate::container;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
-use crate::pane_grid::{self, TitleBar};
+use crate::pane_grid::TitleBar;
+use crate::renderer::{self, Renderer};
 use crate::{Clipboard, Element, Hasher, Layout, Point, Rectangle, Size};
 
 /// The content of a [`Pane`].
 ///
 /// [`Pane`]: crate::widget::pane_grid::Pane
 #[allow(missing_debug_implementations)]
-pub struct Content<'a, Message, Renderer: pane_grid::Renderer> {
-    title_bar: Option<TitleBar<'a, Message, Renderer>>,
-    body: Element<'a, Message, Renderer>,
-    style: <Renderer as container::Renderer>::Style,
+pub struct Content<'a, Message> {
+    title_bar: Option<TitleBar<'a, Message>>,
+    body: Element<'a, Message>,
+    style: &'a dyn container::StyleSheet,
 }
 
-impl<'a, Message, Renderer> Content<'a, Message, Renderer>
-where
-    Renderer: pane_grid::Renderer,
-{
+impl<'a, Message> Content<'a, Message> {
     /// Creates a new [`Content`] with the provided body.
-    pub fn new(body: impl Into<Element<'a, Message, Renderer>>) -> Self {
+    pub fn new(body: impl Into<Element<'a, Message>>) -> Self {
         Self {
             title_bar: None,
             body: body.into(),
@@ -29,39 +27,33 @@ where
     }
 
     /// Sets the [`TitleBar`] of this [`Content`].
-    pub fn title_bar(
-        mut self,
-        title_bar: TitleBar<'a, Message, Renderer>,
-    ) -> Self {
+    pub fn title_bar(mut self, title_bar: TitleBar<'a, Message>) -> Self {
         self.title_bar = Some(title_bar);
         self
     }
 
     /// Sets the style of the [`Content`].
-    pub fn style(
-        mut self,
-        style: impl Into<<Renderer as container::Renderer>::Style>,
-    ) -> Self {
-        self.style = style.into();
+    pub fn style<'b>(mut self, style: &'b dyn container::StyleSheet) -> Self
+    where
+        'b: 'a,
+    {
+        self.style = style;
         self
     }
 }
 
-impl<'a, Message, Renderer> Content<'a, Message, Renderer>
-where
-    Renderer: pane_grid::Renderer,
-{
+impl<'a, Message> Content<'a, Message> {
     /// Draws the [`Content`] with the provided [`Renderer`] and [`Layout`].
     ///
     /// [`Renderer`]: crate::widget::pane_grid::Renderer
     pub fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         if let Some(title_bar) = &self.title_bar {
             let mut children = layout.children();
             let title_bar_layout = children.next().unwrap();
@@ -108,7 +100,7 @@ where
 
     pub(crate) fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         if let Some(title_bar) = &self.title_bar {
@@ -146,7 +138,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
         is_picked: bool,
@@ -197,7 +189,7 @@ where
     pub(crate) fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         if let Some(title_bar) = self.title_bar.as_mut() {
             let mut children = layout.children();
             let title_bar_layout = children.next()?;
@@ -212,10 +204,9 @@ where
     }
 }
 
-impl<'a, T, Message, Renderer> From<T> for Content<'a, Message, Renderer>
+impl<'a, T, Message> From<T> for Content<'a, Message>
 where
-    T: Into<Element<'a, Message, Renderer>>,
-    Renderer: pane_grid::Renderer + container::Renderer,
+    T: Into<Element<'a, Message>>,
 {
     fn from(element: T) -> Self {
         Self::new(element)

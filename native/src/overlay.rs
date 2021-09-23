@@ -8,13 +8,11 @@ pub use menu::Menu;
 
 use crate::event::{self, Event};
 use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::{Clipboard, Hasher, Layout, Point, Size};
 
 /// An interactive component that can be displayed on top of other widgets.
-pub trait Overlay<Message, Renderer>
-where
-    Renderer: crate::Renderer,
-{
+pub trait Overlay<Message> {
     /// Returns the layout [`Node`] of the [`Overlay`].
     ///
     /// This [`Node`] is used by the runtime to compute the [`Layout`] of the
@@ -23,7 +21,7 @@ where
     /// [`Node`]: layout::Node
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         bounds: Size,
         position: Point,
     ) -> layout::Node;
@@ -31,11 +29,11 @@ where
     /// Draws the [`Overlay`] using the associated `Renderer`.
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
-    ) -> Renderer::Output;
+    );
 
     /// Computes the _layout_ hash of the [`Overlay`].
     ///
@@ -67,7 +65,7 @@ where
         _event: Event,
         _layout: Layout<'_>,
         _cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         _messages: &mut Vec<Message>,
     ) -> event::Status {

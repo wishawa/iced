@@ -5,8 +5,7 @@ use crate::layout;
 use crate::mouse;
 use crate::overlay;
 use crate::overlay::menu::{self, Menu};
-use crate::scrollable;
-use crate::text;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Element, Font, Hasher, Layout, Length, Padding, Point,
@@ -14,9 +13,11 @@ use crate::{
 };
 use std::borrow::Cow;
 
+pub use iced_style::pick_list::{Style, StyleSheet};
+
 /// A widget for selecting a single value from a list of options.
 #[allow(missing_debug_implementations)]
-pub struct PickList<'a, T, Message, Renderer: self::Renderer>
+pub struct PickList<'a, T, Message>
 where
     [T]: ToOwned<Owned = Vec<T>>,
 {
@@ -33,7 +34,7 @@ where
     padding: Padding,
     text_size: Option<u16>,
     font: Font,
-    style: <Renderer as self::Renderer>::Style,
+    style: &'a dyn StyleSheet,
 }
 
 /// The local state of a [`PickList`].
@@ -58,8 +59,7 @@ impl<T> Default for State<T> {
     }
 }
 
-impl<'a, T: 'a, Message, Renderer: self::Renderer>
-    PickList<'a, T, Message, Renderer>
+impl<'a, T: 'a, Message> PickList<'a, T, Message>
 where
     T: ToString + Eq,
     [T]: ToOwned<Owned = Vec<T>>,
@@ -130,22 +130,20 @@ where
     }
 
     /// Sets the style of the [`PickList`].
-    pub fn style(
-        mut self,
-        style: impl Into<<Renderer as self::Renderer>::Style>,
-    ) -> Self {
-        self.style = style.into();
+    pub fn style<'b>(mut self, style: &'b dyn StyleSheet) -> Self
+    where
+        'b: 'a,
+    {
+        self.style = style;
         self
     }
 }
 
-impl<'a, T: 'a, Message, Renderer> Widget<Message, Renderer>
-    for PickList<'a, T, Message, Renderer>
+impl<'a, T: 'a, Message> Widget<Message> for PickList<'a, T, Message>
 where
     T: Clone + ToString + Eq,
     [T]: ToOwned<Owned = Vec<T>>,
     Message: 'static,
-    Renderer: self::Renderer + scrollable::Renderer + 'a,
 {
     fn width(&self) -> Length {
         self.width
@@ -157,7 +155,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         use std::f32;
@@ -237,7 +235,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        _renderer: &Renderer,
+        _renderer: &dyn Renderer,
         _clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -322,12 +320,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         self::Renderer::draw(
             renderer,
             layout.bounds(),
@@ -344,7 +342,7 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         if *self.is_open {
             let bounds = layout.bounds();
 
@@ -370,47 +368,13 @@ where
     }
 }
 
-/// The renderer of a [`PickList`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`PickList`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: text::Renderer + menu::Renderer {
-    /// The default padding of a [`PickList`].
-    const DEFAULT_PADDING: Padding;
-
-    /// The [`PickList`] style supported by this renderer.
-    type Style: Default;
-
-    /// Returns the style of the [`Menu`] of the [`PickList`].
-    fn menu_style(
-        style: &<Self as Renderer>::Style,
-    ) -> <Self as menu::Renderer>::Style;
-
-    /// Draws a [`PickList`].
-    fn draw(
-        &mut self,
-        bounds: Rectangle,
-        cursor_position: Point,
-        selected: Option<String>,
-        placeholder: Option<&str>,
-        padding: Padding,
-        text_size: u16,
-        font: Font,
-        style: &<Self as Renderer>::Style,
-    ) -> Self::Output;
-}
-
-impl<'a, T: 'a, Message, Renderer> Into<Element<'a, Message, Renderer>>
-    for PickList<'a, T, Message, Renderer>
+impl<'a, T: 'a, Message> Into<Element<'a, Message>> for PickList<'a, T, Message>
 where
     T: Clone + ToString + Eq,
     [T]: ToOwned<Owned = Vec<T>>,
-    Renderer: self::Renderer + 'a,
     Message: 'static,
 {
-    fn into(self) -> Element<'a, Message, Renderer> {
+    fn into(self) -> Element<'a, Message> {
         Element::new(self)
     }
 }

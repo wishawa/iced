@@ -4,6 +4,7 @@ use std::hash::Hash;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::overlay;
+use crate::renderer::{self, Renderer};
 use crate::{
     Alignment, Clipboard, Element, Hasher, Layout, Length, Padding, Point,
     Rectangle, Widget,
@@ -13,7 +14,7 @@ use std::u32;
 
 /// A container that distributes its contents vertically.
 #[allow(missing_debug_implementations)]
-pub struct Column<'a, Message, Renderer> {
+pub struct Column<'a, Message> {
     spacing: u16,
     padding: Padding,
     width: Length,
@@ -21,19 +22,17 @@ pub struct Column<'a, Message, Renderer> {
     max_width: u32,
     max_height: u32,
     align_items: Alignment,
-    children: Vec<Element<'a, Message, Renderer>>,
+    children: Vec<Element<'a, Message>>,
 }
 
-impl<'a, Message, Renderer> Column<'a, Message, Renderer> {
+impl<'a, Message> Column<'a, Message> {
     /// Creates an empty [`Column`].
     pub fn new() -> Self {
         Self::with_children(Vec::new())
     }
 
     /// Creates a [`Column`] with the given elements.
-    pub fn with_children(
-        children: Vec<Element<'a, Message, Renderer>>,
-    ) -> Self {
+    pub fn with_children(children: Vec<Element<'a, Message>>) -> Self {
         Column {
             spacing: 0,
             padding: Padding::ZERO,
@@ -95,18 +94,14 @@ impl<'a, Message, Renderer> Column<'a, Message, Renderer> {
     /// Adds an element to the [`Column`].
     pub fn push<E>(mut self, child: E) -> Self
     where
-        E: Into<Element<'a, Message, Renderer>>,
+        E: Into<Element<'a, Message>>,
     {
         self.children.push(child.into());
         self
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for Column<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> Widget<Message> for Column<'a, Message> {
     fn width(&self) -> Length {
         self.width
     }
@@ -117,7 +112,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits
@@ -142,7 +137,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -164,12 +159,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(
             defaults,
             &self.children,
@@ -199,7 +194,7 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         self.children
             .iter_mut()
             .zip(layout.children())
@@ -208,38 +203,11 @@ where
     }
 }
 
-/// The renderer of a [`Column`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`Column`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer + Sized {
-    /// Draws a [`Column`].
-    ///
-    /// It receives:
-    /// - the children of the [`Column`]
-    /// - the [`Layout`] of the [`Column`] and its children
-    /// - the cursor position
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        content: &[Element<'_, Message, Self>],
-        layout: Layout<'_>,
-        cursor_position: Point,
-        viewport: &Rectangle,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Column<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<Column<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer,
     Message: 'a,
 {
-    fn from(
-        column: Column<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(column: Column<'a, Message>) -> Element<'a, Message> {
         Element::new(column)
     }
 }

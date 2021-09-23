@@ -1,5 +1,6 @@
 //! Display vector graphics in your application.
 use crate::layout;
+use crate::renderer::{self, Renderer};
 use crate::{Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget};
 
 use std::{
@@ -50,10 +51,7 @@ impl Svg {
     }
 }
 
-impl<Message, Renderer> Widget<Message, Renderer> for Svg
-where
-    Renderer: self::Renderer,
-{
+impl<Message> Widget<Message> for Svg {
     fn width(&self) -> Length {
         self.width
     }
@@ -64,7 +62,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let (width, height) = renderer.dimensions(&self.handle);
@@ -89,12 +87,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        _defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        _defaults: &renderer::Defaults,
         layout: Layout<'_>,
         _cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         renderer.draw(self.handle.clone(), layout)
     }
 
@@ -178,25 +176,8 @@ impl std::fmt::Debug for Data {
     }
 }
 
-/// The renderer of an [`Svg`].
-///
-/// Your [renderer] will need to implement this trait before being able to use
-/// an [`Svg`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer {
-    /// Returns the default dimensions of an [`Svg`] for the given [`Handle`].
-    fn dimensions(&self, handle: &Handle) -> (u32, u32);
-
-    /// Draws an [`Svg`].
-    fn draw(&mut self, handle: Handle, layout: Layout<'_>) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<Svg> for Element<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
-    fn from(icon: Svg) -> Element<'a, Message, Renderer> {
+impl<'a, Message> From<Svg> for Element<'a, Message> {
+    fn from(icon: Svg) -> Element<'a, Message> {
         Element::new(icon)
     }
 }

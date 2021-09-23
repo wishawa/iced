@@ -27,17 +27,18 @@ pub use split::Split;
 pub use state::State;
 pub use title_bar::TitleBar;
 
-use crate::container;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::mouse;
 use crate::overlay;
-use crate::row;
+use crate::renderer::{self, Renderer};
 use crate::touch;
 use crate::{
     Clipboard, Element, Hasher, Layout, Length, Point, Rectangle, Size, Vector,
     Widget,
 };
+
+pub use iced_style::pane_grid::StyleSheet;
 
 /// A collection of panes distributed using either vertical or horizontal splits
 /// to completely fill the space available.
@@ -89,29 +90,26 @@ use crate::{
 ///     .on_resize(10, Message::PaneResized);
 /// ```
 #[allow(missing_debug_implementations)]
-pub struct PaneGrid<'a, Message, Renderer: self::Renderer> {
+pub struct PaneGrid<'a, Message> {
     state: &'a mut state::Internal,
-    elements: Vec<(Pane, Content<'a, Message, Renderer>)>,
+    elements: Vec<(Pane, Content<'a, Message>)>,
     width: Length,
     height: Length,
     spacing: u16,
     on_click: Option<Box<dyn Fn(Pane) -> Message + 'a>>,
     on_drag: Option<Box<dyn Fn(DragEvent) -> Message + 'a>>,
     on_resize: Option<(u16, Box<dyn Fn(ResizeEvent) -> Message + 'a>)>,
-    style: <Renderer as self::Renderer>::Style,
+    style: &'a dyn StyleSheet,
 }
 
-impl<'a, Message, Renderer> PaneGrid<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> PaneGrid<'a, Message> {
     /// Creates a [`PaneGrid`] with the given [`State`] and view function.
     ///
     /// The view function will be called to display each [`Pane`] present in the
     /// [`State`].
     pub fn new<T>(
         state: &'a mut State<T>,
-        view: impl Fn(Pane, &'a mut T) -> Content<'a, Message, Renderer>,
+        view: impl Fn(Pane, &'a mut T) -> Content<'a, Message>,
     ) -> Self {
         let elements = {
             state
@@ -190,19 +188,16 @@ where
     }
 
     /// Sets the style of the [`PaneGrid`].
-    pub fn style(
-        mut self,
-        style: impl Into<<Renderer as self::Renderer>::Style>,
-    ) -> Self {
-        self.style = style.into();
+    pub fn style<'b>(mut self, style: &'b dyn StyleSheet) -> Self
+    where
+        'b: 'a,
+    {
+        self.style = style;
         self
     }
 }
 
-impl<'a, Message, Renderer> PaneGrid<'a, Message, Renderer>
-where
-    Renderer: self::Renderer,
-{
+impl<'a, Message> PaneGrid<'a, Message> {
     fn click_pane(
         &mut self,
         layout: Layout<'_>,
@@ -315,11 +310,7 @@ pub struct ResizeEvent {
     pub ratio: f32,
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer>
-    for PaneGrid<'a, Message, Renderer>
-where
-    Renderer: self::Renderer + container::Renderer,
-{
+impl<'a, Message> Widget<Message> for PaneGrid<'a, Message> {
     fn width(&self) -> Length {
         self.width
     }
@@ -330,7 +321,7 @@ where
 
     fn layout(
         &self,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let limits = limits.width(self.width).height(self.height);
@@ -362,7 +353,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor_position: Point,
-        renderer: &Renderer,
+        renderer: &dyn Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
@@ -475,12 +466,12 @@ where
 
     fn draw(
         &self,
-        renderer: &mut Renderer,
-        defaults: &Renderer::Defaults,
+        renderer: &mut dyn Renderer,
+        defaults: &renderer::Defaults,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> Renderer::Output {
+    ) {
         let picked_split = self
             .state
             .picked_split()
@@ -560,7 +551,7 @@ where
     fn overlay(
         &mut self,
         layout: Layout<'_>,
-    ) -> Option<overlay::Element<'_, Message, Renderer>> {
+    ) -> Option<overlay::Element<'_, Message>> {
         self.elements
             .iter_mut()
             .zip(layout.children())
@@ -569,83 +560,11 @@ where
     }
 }
 
-/// The renderer of a [`PaneGrid`].
-///
-/// Your [renderer] will need to implement this trait before being
-/// able to use a [`PaneGrid`] in your user interface.
-///
-/// [renderer]: crate::renderer
-pub trait Renderer: crate::Renderer + container::Renderer + Sized {
-    /// The style supported by this renderer.
-    type Style: Default;
-
-    /// Draws a [`PaneGrid`].
-    ///
-    /// It receives:
-    /// - the elements of the [`PaneGrid`]
-    /// - the [`Pane`] that is currently being dragged
-    /// - the [`Axis`] that is currently being resized
-    /// - the [`Layout`] of the [`PaneGrid`] and its elements
-    /// - the cursor position
-    fn draw<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        content: &[(Pane, Content<'_, Message, Self>)],
-        dragging: Option<(Pane, Point)>,
-        resizing: Option<(Axis, Rectangle, bool)>,
-        layout: Layout<'_>,
-        style: &<Self as self::Renderer>::Style,
-        cursor_position: Point,
-        viewport: &Rectangle,
-    ) -> Self::Output;
-
-    /// Draws a [`Pane`].
-    ///
-    /// It receives:
-    /// - the [`TitleBar`] of the [`Pane`], if any
-    /// - the [`Content`] of the [`Pane`]
-    /// - the [`Layout`] of the [`Pane`] and its elements
-    /// - the cursor position
-    fn draw_pane<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        bounds: Rectangle,
-        style: &<Self as container::Renderer>::Style,
-        title_bar: Option<(&TitleBar<'_, Message, Self>, Layout<'_>)>,
-        body: (&Element<'_, Message, Self>, Layout<'_>),
-        cursor_position: Point,
-        viewport: &Rectangle,
-    ) -> Self::Output;
-
-    /// Draws a [`TitleBar`].
-    ///
-    /// It receives:
-    /// - the bounds, style of the [`TitleBar`]
-    /// - the style of the [`TitleBar`]
-    /// - the content of the [`TitleBar`] with its layout
-    /// - the controls of the [`TitleBar`] with their [`Layout`], if any
-    /// - the cursor position
-    fn draw_title_bar<Message>(
-        &mut self,
-        defaults: &Self::Defaults,
-        bounds: Rectangle,
-        style: &<Self as container::Renderer>::Style,
-        content: (&Element<'_, Message, Self>, Layout<'_>),
-        controls: Option<(&Element<'_, Message, Self>, Layout<'_>)>,
-        cursor_position: Point,
-        viewport: &Rectangle,
-    ) -> Self::Output;
-}
-
-impl<'a, Message, Renderer> From<PaneGrid<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message> From<PaneGrid<'a, Message>> for Element<'a, Message>
 where
-    Renderer: 'a + self::Renderer + row::Renderer,
     Message: 'a,
 {
-    fn from(
-        pane_grid: PaneGrid<'a, Message, Renderer>,
-    ) -> Element<'a, Message, Renderer> {
+    fn from(pane_grid: PaneGrid<'a, Message>) -> Element<'a, Message> {
         Element::new(pane_grid)
     }
 }
