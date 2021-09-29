@@ -143,6 +143,115 @@ impl<'a, Message> Widget<Message> for Tooltip<'a, Message> {
         cursor_position: Point,
         viewport: &Rectangle,
     ) {
+        let Self {
+            content,
+            position,
+            gap,
+            padding,
+            style_sheet,
+            ..
+        } = self;
+
+        let bounds = layout.bounds();
+
+        if bounds.contains(cursor_position) {
+            let gap = f32::from(*gap);
+            let style = style_sheet.style();
+
+            let defaults = renderer::Defaults {
+                text: renderer::Text {
+                    color: style.text_color.unwrap_or(defaults.text.color),
+                },
+            };
+
+            let text_layout = Widget::<()>::layout(
+                &self.tooltip,
+                renderer,
+                &layout::Limits::new(Size::ZERO, viewport.size())
+                    .pad(Padding::new(*padding)),
+            );
+
+            let padding = f32::from(*padding);
+            let text_bounds = text_layout.bounds();
+            let x_center = bounds.x + (bounds.width - text_bounds.width) / 2.0;
+            let y_center =
+                bounds.y + (bounds.height - text_bounds.height) / 2.0;
+
+            let mut tooltip_bounds = {
+                let offset = match position {
+                    Position::Top => Vector::new(
+                        x_center,
+                        bounds.y - text_bounds.height - gap - padding,
+                    ),
+                    Position::Bottom => Vector::new(
+                        x_center,
+                        bounds.y + bounds.height + gap + padding,
+                    ),
+                    Position::Left => Vector::new(
+                        bounds.x - text_bounds.width - gap - padding,
+                        y_center,
+                    ),
+                    Position::Right => Vector::new(
+                        bounds.x + bounds.width + gap + padding,
+                        y_center,
+                    ),
+                    Position::FollowCursor => Vector::new(
+                        cursor_position.x,
+                        cursor_position.y - text_bounds.height,
+                    ),
+                };
+
+                Rectangle {
+                    x: offset.x - padding,
+                    y: offset.y - padding,
+                    width: text_bounds.width + padding * 2.0,
+                    height: text_bounds.height + padding * 2.0,
+                }
+            };
+
+            if tooltip_bounds.x < viewport.x {
+                tooltip_bounds.x = viewport.x;
+            } else if viewport.x + viewport.width
+                < tooltip_bounds.x + tooltip_bounds.width
+            {
+                tooltip_bounds.x =
+                    viewport.x + viewport.width - tooltip_bounds.width;
+            }
+
+            if tooltip_bounds.y < viewport.y {
+                tooltip_bounds.y = viewport.y;
+            } else if viewport.y + viewport.height
+                < tooltip_bounds.y + tooltip_bounds.height
+            {
+                tooltip_bounds.y =
+                    viewport.y + viewport.height - tooltip_bounds.height;
+            }
+
+            renderer.begin_layer(*viewport);
+            Widget::<()>::draw(
+                &self.tooltip,
+                renderer,
+                &defaults,
+                Layout::with_offset(
+                    Vector::new(
+                        tooltip_bounds.x + padding,
+                        tooltip_bounds.y + padding,
+                    ),
+                    &text_layout,
+                ),
+                cursor_position,
+                viewport,
+            );
+            renderer.end_layer();
+        }
+
+        self.content.draw(
+            renderer,
+            &defaults,
+            layout,
+            cursor_position,
+            viewport,
+        );
     }
 
     fn hash_layout(&self, state: &mut Hasher) {
