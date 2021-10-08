@@ -85,7 +85,7 @@ where
         layout: Layout<'_>,
         _cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> (Primitive, mouse::Interaction) {
+    ) -> (Primitive<B>, mouse::Interaction) {
         let bounds = layout.bounds();
         let side_length = self.state.width + 2 * QUIET_ZONE;
 
@@ -125,7 +125,7 @@ where
         (
             Primitive::Translate {
                 translation: Vector::new(bounds.x, bounds.y),
-                content: Box::new(geometry.into_primitive()),
+                content: Box::new(geometry.into_primitive().into()),
             },
             mouse::Interaction::default(),
         )

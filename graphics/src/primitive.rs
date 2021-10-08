@@ -4,18 +4,27 @@ use iced_native::{
 
 use crate::alignment;
 use crate::triangle;
+use crate::Backend;
 
 use std::sync::Arc;
 
+pub trait PrimitiveBackend {
+    type CustomRenderPrimitive;
+}
+
+impl<B: Backend> PrimitiveBackend for B {
+    type CustomRenderPrimitive = B::CustomRenderPrimitive;
+}
+
 /// A rendering primitive.
 #[derive(Debug, Clone)]
-pub enum Primitive {
+pub enum Primitive<B: PrimitiveBackend> {
     /// An empty primitive
     None,
     /// A group of primitives
     Group {
         /// The primitives of the group
-        primitives: Vec<Primitive>,
+        primitives: Vec<Primitive<B>>,
     },
     /// A text primitive
     Text {
@@ -69,7 +78,7 @@ pub enum Primitive {
         /// The offset transformation of the clip
         offset: Vector<u32>,
         /// The content of the clip
-        content: Box<Primitive>,
+        content: Box<Primitive<B>>,
     },
     /// A primitive that applies a translation
     Translate {
@@ -77,7 +86,7 @@ pub enum Primitive {
         translation: Vector,
 
         /// The primitive to translate
-        content: Box<Primitive>,
+        content: Box<Primitive<B>>,
     },
     /// A low-level primitive to render a mesh of triangles.
     ///
@@ -97,12 +106,90 @@ pub enum Primitive {
     /// generation is expensive.
     Cached {
         /// The cached primitive
-        cache: Arc<Primitive>,
+        cache: Arc<Primitive<B>>,
     },
+    /// A rendering job specific to the backend. Currently used in `iced_wgpu` to allow rendering with wgpu directly.
+    Custom(B::CustomRenderPrimitive),
 }
 
-impl Default for Primitive {
-    fn default() -> Primitive {
-        Primitive::None
+impl<B: PrimitiveBackend> Default for Primitive<B> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl PrimitiveBackend for () {
+    type CustomRenderPrimitive = ();
+}
+
+impl<B: Backend> From<Primitive<()>> for Primitive<B> {
+    fn from(from: Primitive<()>) -> Self {
+        match from {
+            Primitive::None => Primitive::None,
+            Primitive::Group { primitives } => Primitive::Group {
+                primitives: primitives.into_iter().map(From::from).collect(),
+            },
+            Primitive::Text {
+                content,
+                bounds,
+                color,
+                size,
+                font,
+                horizontal_alignment,
+                vertical_alignment,
+            } => Primitive::Text {
+                content,
+                bounds,
+                color,
+                size,
+                font,
+                horizontal_alignment,
+                vertical_alignment,
+            },
+            Primitive::Quad {
+                bounds,
+                background,
+                border_radius,
+                border_width,
+                border_color,
+            } => Primitive::Quad {
+                bounds,
+                background,
+                border_radius,
+                border_width,
+                border_color,
+            },
+            Primitive::Image { handle, bounds } => {
+                Primitive::Image { handle, bounds }
+            }
+            Primitive::Svg { handle, bounds } => {
+                Primitive::Svg { handle, bounds }
+            }
+            Primitive::Clip {
+                bounds,
+                offset,
+                content,
+            } => Primitive::Clip {
+                bounds,
+                offset,
+                content: Box::new(From::from(*content)),
+            },
+            Primitive::Translate {
+                translation,
+                content,
+            } => Primitive::Translate {
+                translation,
+                content: Box::new(From::from(*content)),
+            },
+            Primitive::Mesh2D { buffers, size } => {
+                Primitive::Mesh2D { buffers, size }
+            }
+            Primitive::Cached { cache } => Primitive::Cached {
+                cache: Arc::new(From::from((*cache).clone())),
+            },
+            Primitive::Custom(_) => {
+                unreachable!("Canvas does not draw backend-specific primitives")
+            }
+        }
     }
 }

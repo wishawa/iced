@@ -10,7 +10,7 @@ enum State {
     Empty,
     Filled {
         bounds: Size,
-        primitive: Arc<Primitive>,
+        primitive: Arc<Primitive<()>>,
     },
 }
 

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::direct_wgpu;
 use crate::quad;
 use crate::text;
 use crate::triangle;
@@ -14,12 +17,18 @@ use iced_native::{Font, Size};
 #[cfg(any(feature = "image_rs", feature = "svg"))]
 use crate::image;
 
+pub use direct_wgpu::DirectWgpuJob;
+
 /// A [`wgpu`] graphics backend for [`iced`].
 ///
 /// [`wgpu`]: https://github.com/gfx-rs/wgpu-rs
 /// [`iced`]: https://github.com/hecrj/iced
 #[derive(Debug)]
 pub struct Backend {
+    device: Arc<wgpu::Device>,
+    queue: Arc<wgpu::Queue>,
+    format: wgpu::TextureFormat,
+
     quad_pipeline: quad::Pipeline,
     text_pipeline: text::Pipeline,
     triangle_pipeline: triangle::Pipeline,
@@ -27,37 +36,48 @@ pub struct Backend {
     #[cfg(any(feature = "image_rs", feature = "svg"))]
     image_pipeline: image::Pipeline,
 
+    wgpu_area_pipeline: direct_wgpu::Pipeline,
+
     default_text_size: u16,
 }
 
 impl Backend {
     /// Creates a new [`Backend`].
     pub fn new(
-        device: &wgpu::Device,
+        device: Arc<wgpu::Device>,
+        queue: Arc<wgpu::Queue>,
         settings: Settings,
         format: wgpu::TextureFormat,
     ) -> Self {
         let text_pipeline = text::Pipeline::new(
-            device,
+            &*device,
             format,
             settings.default_font,
             settings.text_multithreading,
         );
 
-        let quad_pipeline = quad::Pipeline::new(device, format);
+        let quad_pipeline = quad::Pipeline::new(&*device, format);
         let triangle_pipeline =
-            triangle::Pipeline::new(device, format, settings.antialiasing);
+            triangle::Pipeline::new(&*device, format, settings.antialiasing);
 
         #[cfg(any(feature = "image_rs", feature = "svg"))]
-        let image_pipeline = image::Pipeline::new(device, format);
+        let image_pipeline = image::Pipeline::new(&*device, format);
+
+        let wgpu_area_pipeline = direct_wgpu::Pipeline::new();
 
         Self {
+            device,
+            queue,
+            format,
+
             quad_pipeline,
             text_pipeline,
             triangle_pipeline,
 
             #[cfg(any(feature = "image_rs", feature = "svg"))]
             image_pipeline,
+
+            wgpu_area_pipeline,
 
             default_text_size: settings.default_text_size,
         }
@@ -74,7 +94,10 @@ impl Backend {
         encoder: &mut wgpu::CommandEncoder,
         frame: &wgpu::TextureView,
         viewport: &Viewport,
-        (primitive, mouse_interaction): &(Primitive, mouse::Interaction),
+        (primitive, mouse_interaction): &(
+            Primitive<Backend>,
+            mouse::Interaction,
+        ),
         overlay_text: &[T],
     ) -> mouse::Interaction {
         log::debug!("Drawing");
@@ -111,7 +134,7 @@ impl Backend {
         device: &wgpu::Device,
         scale_factor: f32,
         transformation: Transformation,
-        layer: &Layer<'_>,
+        layer: &Layer<'_, Backend>,
         staging_belt: &mut wgpu::util::StagingBelt,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
@@ -168,6 +191,19 @@ impl Backend {
                 );
             }
         }
+
+        if !layer.customs.is_empty() {
+            self.wgpu_area_pipeline.draw(
+                device,
+                staging_belt,
+                encoder,
+                &layer.customs,
+                target,
+                scale_factor,
+            )
+        }
+
+        //self.wgpu_area_pipeline.draw(device, staging_belt, encoder, target, scale_factor);
 
         if !layer.text.is_empty() {
             for text in layer.text.iter() {
@@ -250,9 +286,25 @@ impl Backend {
             );
         }
     }
+    /// Get the wgpu::Device used for rendering.
+    /// Useful if you want to render directly with `wgpu`.
+    pub fn get_device(&self) -> &Arc<wgpu::Device> {
+        &self.device
+    }
+    /// Get the wgpu::Queue used.
+    /// Useful if you want to render directly with `wgpu`.
+    pub fn get_queue(&self) -> &Arc<wgpu::Queue> {
+        &self.queue
+    }
+    /// Get the texture format
+    /// Useful if you want to render directly with `wgpu`.
+    pub fn get_format(&self) -> wgpu::TextureFormat {
+        self.format.clone()
+    }
 }
 
 impl iced_graphics::Backend for Backend {
+    type CustomRenderPrimitive = DirectWgpuJob;
     fn trim_measurements(&mut self) {
         self.text_pipeline.trim_measurement_cache()
     }

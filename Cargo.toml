@@ -67,6 +67,7 @@ members = [
     "examples/color_palette",
     "examples/counter",
     "examples/custom_widget",
+    "examples/direct_wgpu",
     "examples/download_progress",
     "examples/events",
     "examples/game_of_life",

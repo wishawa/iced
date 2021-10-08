@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{Backend, Color, Error, Renderer, Settings, Viewport};
 
 use futures::task::SpawnExt;
@@ -9,8 +11,8 @@ use raw_window_handle::HasRawWindowHandle;
 pub struct Compositor {
     settings: Settings,
     instance: wgpu::Instance,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    device: Arc<wgpu::Device>,
+    queue: Arc<wgpu::Queue>,
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
     format: wgpu::TextureFormat,
@@ -64,6 +66,9 @@ impl Compositor {
             .await
             .ok()?;
 
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
 
@@ -80,7 +85,12 @@ impl Compositor {
 
     /// Creates a new rendering [`Backend`] for this [`Compositor`].
     pub fn create_backend(&self) -> Backend {
-        Backend::new(&self.device, self.settings, self.format)
+        Backend::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.settings,
+            self.format,
+        )
     }
 }
 

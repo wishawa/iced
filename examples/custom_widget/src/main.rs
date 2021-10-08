@@ -58,7 +58,7 @@ mod circle {
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
-        ) -> (Primitive, mouse::Interaction) {
+        ) -> (Primitive<B>, mouse::Interaction) {
             (
                 Primitive::Quad {
                     bounds: layout.bounds(),

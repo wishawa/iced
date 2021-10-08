@@ -3,13 +3,14 @@ use crate::alignment;
 use crate::image;
 use crate::svg;
 use crate::triangle;
+use crate::Backend;
 use crate::{
     Background, Font, Point, Primitive, Rectangle, Size, Vector, Viewport,
 };
 
 /// A group of primitives that should be clipped together.
 #[derive(Debug, Clone)]
-pub struct Layer<'a> {
+pub struct Layer<'a, B: Backend> {
     /// The clipping bounds of the [`Layer`].
     pub bounds: Rectangle,
 
@@ -24,9 +25,12 @@ pub struct Layer<'a> {
 
     /// The images of the [`Layer`].
     pub images: Vec<Image>,
+
+    /// The custom rendering primitives (e.g. wgpu render commands) of [`Layer`]
+    pub customs: Vec<&'a B::CustomRenderPrimitive>,
 }
 
-impl<'a> Layer<'a> {
+impl<'a, B: Backend> Layer<'a, B> {
     /// Creates a new [`Layer`] with the given clipping bounds.
     pub fn new(bounds: Rectangle) -> Self {
         Self {
@@ -35,6 +39,7 @@ impl<'a> Layer<'a> {
             meshes: Vec::new(),
             text: Vec::new(),
             images: Vec::new(),
+            customs: Vec::new(),
         }
     }
 
@@ -74,7 +79,7 @@ impl<'a> Layer<'a> {
     /// Distributes the given [`Primitive`] and generates a list of layers based
     /// on its contents.
     pub fn generate(
-        primitive: &'a Primitive,
+        primitive: &'a Primitive<B>,
         viewport: &Viewport,
     ) -> Vec<Self> {
         let first_layer =
@@ -95,7 +100,7 @@ impl<'a> Layer<'a> {
     fn process_primitive(
         layers: &mut Vec<Self>,
         translation: Vector,
-        primitive: &'a Primitive,
+        primitive: &'a Primitive<B>,
         current_layer: usize,
     ) {
         match primitive {
@@ -231,6 +236,11 @@ impl<'a> Layer<'a> {
                     handle: handle.clone(),
                     bounds: *bounds + translation,
                 });
+            }
+            Primitive::Custom(custom_job) => {
+                let layer = &mut layers[current_layer];
+
+                layer.customs.push(custom_job);
             }
         }
     }

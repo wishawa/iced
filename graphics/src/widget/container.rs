@@ -58,10 +58,10 @@ where
     }
 }
 
-pub(crate) fn background(
+pub(crate) fn background<B: Backend>(
     bounds: Rectangle,
     style: &container::Style,
-) -> Option<Primitive> {
+) -> Option<Primitive<B>> {
     if style.background.is_some() || style.border_width > 0.0 {
         Some(Primitive::Quad {
             bounds,

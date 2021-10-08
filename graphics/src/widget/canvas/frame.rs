@@ -14,7 +14,7 @@ use lyon::tessellation;
 pub struct Frame {
     size: Size,
     buffers: lyon::tessellation::VertexBuffers<triangle::Vertex2D, u32>,
-    primitives: Vec<Primitive>,
+    primitives: Vec<Primitive<()>>,
     transforms: Transforms,
     fill_tessellator: tessellation::FillTessellator,
     stroke_tessellator: tessellation::StrokeTessellator,
@@ -37,8 +37,8 @@ impl Frame {
     ///
     /// The default coordinate system of a [`Frame`] has its origin at the
     /// top-left corner of its bounds.
-    pub fn new(size: Size) -> Frame {
-        Frame {
+    pub fn new(size: Size) -> Self {
+        Self {
             size,
             buffers: lyon::tessellation::VertexBuffers::new(),
             primitives: Vec::new(),
@@ -236,7 +236,7 @@ impl Frame {
     /// This method is useful to compose transforms and perform drawing
     /// operations in different coordinate systems.
     #[inline]
-    pub fn with_save(&mut self, f: impl FnOnce(&mut Frame)) {
+    pub fn with_save(&mut self, f: impl FnOnce(&mut Self)) {
         self.transforms.previous.push(self.transforms.current);
 
         f(self);

@@ -32,7 +32,7 @@ impl<B> iced_native::Renderer for Renderer<B>
 where
     B: Backend,
 {
-    type Output = (Primitive, mouse::Interaction);
+    type Output = (Primitive<B>, mouse::Interaction);
     type Defaults = Defaults;
 
     fn layout<'a, Message>(
@@ -49,10 +49,13 @@ where
 
     fn overlay(
         &mut self,
-        (base_primitive, base_cursor): (Primitive, mouse::Interaction),
-        (overlay_primitives, overlay_cursor): (Primitive, mouse::Interaction),
+        (base_primitive, base_cursor): (Primitive<B>, mouse::Interaction),
+        (overlay_primitives, overlay_cursor): (
+            Primitive<B>,
+            mouse::Interaction,
+        ),
         overlay_bounds: Rectangle,
-    ) -> (Primitive, mouse::Interaction) {
+    ) -> (Primitive<B>, mouse::Interaction) {
         (
             Primitive::Group {
                 primitives: vec![
@@ -102,10 +105,10 @@ where
     }
 }
 
-fn explain_layout(
+fn explain_layout<B: Backend>(
     layout: Layout<'_>,
     color: Color,
-    primitives: &mut Vec<Primitive>,
+    primitives: &mut Vec<Primitive<B>>,
 ) {
     primitives.push(Primitive::Quad {
         bounds: layout.bounds(),

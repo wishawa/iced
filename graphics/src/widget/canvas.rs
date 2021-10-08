@@ -193,7 +193,7 @@ where
         layout: Layout<'_>,
         cursor_position: Point,
         _viewport: &Rectangle,
-    ) -> (Primitive, mouse::Interaction) {
+    ) -> (Primitive<B>, mouse::Interaction) {
         let bounds = layout.bounds();
         let translation = Vector::new(bounds.x, bounds.y);
         let cursor = Cursor::from_window_position(cursor_position);
@@ -207,6 +207,7 @@ where
                         .draw(bounds, cursor)
                         .into_iter()
                         .map(Geometry::into_primitive)
+                        .map(Into::into)
                         .collect(),
                 }),
             },

@@ -33,6 +33,7 @@ pub mod widget;
 pub mod window;
 
 mod backend;
+mod direct_wgpu;
 mod quad;
 mod text;
 
@@ -41,7 +42,7 @@ pub use iced_graphics::{
 };
 pub use wgpu;
 
-pub use backend::Backend;
+pub use backend::{Backend, DirectWgpuJob};
 pub use settings::Settings;
 
 #[doc(no_inline)]

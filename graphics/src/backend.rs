@@ -7,7 +7,10 @@ use iced_native::{Font, Point, Size};
 /// The graphics backend of a [`Renderer`].
 ///
 /// [`Renderer`]: crate::Renderer
-pub trait Backend {
+pub trait Backend: 'static + std::fmt::Debug {
+    /// Backend-specific rendering job.
+    type CustomRenderPrimitive: std::fmt::Debug + Clone;
+
     /// Trims the measurements cache.
     ///
     /// This method is currently necessary to properly trim the text cache in

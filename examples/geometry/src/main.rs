@@ -58,7 +58,7 @@ mod rainbow {
             layout: Layout<'_>,
             cursor_position: Point,
             _viewport: &Rectangle,
-        ) -> (Primitive, mouse::Interaction) {
+        ) -> (Primitive<B>, mouse::Interaction) {
             let b = layout.bounds();
 
             // R O Y G B I V

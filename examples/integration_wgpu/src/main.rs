@@ -1,6 +1,8 @@
 mod controls;
 mod scene;
 
+use std::sync::Arc;
+
 use controls::Controls;
 use scene::Scene;
 
@@ -85,10 +87,17 @@ pub fn main() {
     let scene = Scene::new(&mut device);
     let controls = Controls::new();
 
+    let device = Arc::new(device);
+    let queue = Arc::new(queue);
+
     // Initialize iced
     let mut debug = Debug::new();
-    let mut renderer =
-        Renderer::new(Backend::new(&mut device, Settings::default(), format));
+    let mut renderer = Renderer::new(Backend::new(
+        device.clone(),
+        queue.clone(),
+        Settings::default(),
+        format,
+    ));
 
     let mut state = program::State::new(
         controls,
@@ -196,7 +205,7 @@ pub fn main() {
 
                         // And then iced on top
                         let mouse_interaction = renderer.backend_mut().draw(
-                            &mut device,
+                            &*device,
                             &mut staging_belt,
                             &mut encoder,
                             &view,

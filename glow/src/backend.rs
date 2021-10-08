@@ -51,7 +51,10 @@ impl Backend {
         &mut self,
         gl: &glow::Context,
         viewport: &Viewport,
-        (primitive, mouse_interaction): &(Primitive, mouse::Interaction),
+        (primitive, mouse_interaction): &(
+            Primitive<Backend>,
+            mouse::Interaction,
+        ),
         overlay_text: &[T],
     ) -> mouse::Interaction {
         let viewport_size = viewport.physical_size();
@@ -79,7 +82,7 @@ impl Backend {
         gl: &glow::Context,
         scale_factor: f32,
         transformation: Transformation,
-        layer: &Layer<'_>,
+        layer: &Layer<'_, Backend>,
         target_height: u32,
     ) {
         let mut bounds = (layer.bounds * scale_factor).snap();
@@ -190,6 +193,7 @@ impl Backend {
 }
 
 impl iced_graphics::Backend for Backend {
+    type CustomRenderPrimitive = ();
     fn trim_measurements(&mut self) {
         self.text_pipeline.trim_measurement_cache()
     }
